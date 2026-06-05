@@ -261,6 +261,43 @@ def history_page(db) -> None:
 
     if not history:
         status_card("暂无历史记录", "完成一次识别和热量估算后会自动保存到 SQLite。", "info")
+        st.markdown(
+            """
+            <div class="result-card">
+              <div class="result-row">
+                <div>
+                  <strong>历史记录列表</strong>
+                  <div class="small-label">移动端对应紧凑卡片列表，PC 端下方提供宽屏表格。</div>
+                </div>
+                <span class="tag primary">最近 0 条</span>
+              </div>
+              <div class="history-list">
+                <div class="history-row">
+                  <div>
+                    <strong>暂无记录</strong>
+                    <span>完成一次识别、热量估算和建议生成后会显示在这里。</span>
+                  </div>
+                  <b class="kcal-small">0 kcal</b>
+                </div>
+              </div>
+            </div>
+            <div class="result-card">
+              <div class="result-row">
+                <strong>PC 历史记录页表格</strong>
+                <span class="tag">按时间倒序</span>
+              </div>
+              <div class="desktop-table">
+                <div class="table-row table-head">
+                  <span>食物</span><span>重量</span><span>估算热量</span><span>置信度</span><span>GPT 建议摘要</span>
+                </div>
+                <div class="table-row">
+                  <span>暂无记录</span><span>-</span><span>-</span><span>-</span><span>完成识别后自动保存</span>
+                </div>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         estimate_boundary_card(
             "GPT 失败降级",
             "API key 未配置、网络失败或超时时，系统仍会展示本地规则建议，并在日志中记录 fallback 或 error。",

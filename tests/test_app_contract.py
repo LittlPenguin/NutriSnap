@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from streamlit.testing.v1 import AppTest
+
 
 def test_app_routes_five_pages_and_about_page_has_no_tech_stack_card():
     app_source = Path("app.py").read_text(encoding="utf-8")
@@ -107,3 +109,24 @@ def test_final_open_design_contract_and_blockers_are_recorded():
         assert blocker in blockers_source
     for rule in ["每完成一个阶段必须进行一次 Git 提交", "提交信息必须使用中文", "opendesign-nutrisnap/"]:
         assert rule in agents_source
+
+
+def test_five_routes_render_open_design_key_sections():
+    routes = {
+        "recognition": ["NutriSnap 轻食记录", "食物识别工作台", "上传食物图片", "Top-3"],
+        "history": ["NutriSnap 轻食记录", "历史记录", "今日记录", "历史记录列表"],
+        "calories": ["NutriSnap 轻食记录", "食物热量表", "Food-101 子集参考数据", "399 kcal"],
+        "stats": ["NutriSnap 轻食记录", "统计分析", "近 7 日估算热量", "常见食物排行"],
+        "about": ["NutriSnap 轻食记录", "系统说明", "模型与数据边界", "GPT-5 功能边界", "免责声明"],
+    }
+
+    for route, expected_texts in routes.items():
+        app = AppTest.from_file("app.py")
+        if route != "recognition":
+            app.query_params["page"] = route
+        app.run(timeout=20)
+
+        rendered_markdown = "\n".join(str(node.value) for node in app.markdown)
+        assert not app.exception
+        for text in expected_texts:
+            assert text in rendered_markdown
