@@ -164,3 +164,112 @@ def workflow_state_strip(active: str) -> None:
         marker = '<i class="loading-line"></i>' if title == "GPT 生成中" and active == title else escape(body)
         items.append(f'<div class="{class_name}"><strong>{escape(title)}</strong><span>{marker}</span></div>')
     st.markdown(f'<div class="state-strip">{"".join(items)}</div>', unsafe_allow_html=True)
+
+
+def history_record_card(record: dict) -> str:
+    food_name = escape(str(record.get("predicted_name_cn", "-")))
+    weight = float(record.get("weight_g", 0) or 0)
+    calorie = float(record.get("total_calorie", 0) or 0)
+    confidence = record.get("confidence")
+    confidence_text = "-" if confidence is None else f"{float(confidence) * 100:.1f}%"
+    created_at = escape(str(record.get("created_at", "-")).replace("T", " "))
+    advice = escape(str(record.get("gpt_advice", "暂无建议摘要") or "暂无建议摘要"))
+    return f"""
+    <div class="history-row">
+      <div>
+        <strong>{food_name}</strong>
+        <span>{weight:.0f}g · 置信度 {escape(confidence_text)} · {created_at}</span>
+        <small>{advice}</small>
+      </div>
+      <b class="kcal-small">{calorie:.0f} kcal</b>
+    </div>
+    """
+
+
+def food_calorie_card(food: dict) -> str:
+    name_cn = escape(str(food.get("name_cn", "-")))
+    class_name = escape(str(food.get("class_name", "-")))
+    category = escape(str(food.get("category", "-")))
+    calorie = float(food.get("calorie_per_100g", 0) or 0)
+    weight = float(food.get("default_weight_g", 0) or 0)
+    note = escape(str(food.get("note", "") or "热量会因品牌、配料和做法变化。"))
+    return f"""
+    <div class="food-row">
+      <div>
+        <strong>{name_cn}</strong>
+        <span>{class_name} · {category}</span>
+        <small>{note}</small>
+      </div>
+      <div class="food-kcal">
+        <b>{calorie:.0f} kcal / 100g</b>
+        <span>默认份量 {weight:.0f}g</span>
+      </div>
+    </div>
+    """
+
+
+def ranking_row(name: str, count: int, total_calorie: float | None = None, meta: str | None = None) -> str:
+    helper = meta or "最近记录"
+    calorie_html = f'<span>{float(total_calorie):.0f} kcal</span>' if total_calorie is not None else ""
+    return f"""
+    <div class="rank-row">
+      <div>
+        <strong>{escape(name)}</strong>
+        <span>{escape(helper)}</span>
+      </div>
+      <b class="kcal-small">{int(count)} 次</b>
+      {calorie_html}
+    </div>
+    """
+
+
+def estimate_boundary_card(title: str, body: str, kind: str = "warning") -> None:
+    class_name = "warning-card" if kind == "warning" else "advice-card"
+    st.markdown(
+        f"""
+        <div class="result-card boundary-card {class_name}">
+          <strong>{escape(title)}</strong>
+          <p>{escape(body)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def daily_bar_chart(rows: Iterable[dict], highlight_label: str = "今天") -> str:
+    row_list = list(rows)
+    if not row_list:
+        return """
+        <div class="chart-shell">
+          <strong>近 7 日估算热量</strong>
+          <div class="upload-box" style="min-height:120px">
+            暂无统计数据，完成一次识别后生成柱状图。
+          </div>
+        </div>
+        """
+
+    max_value = max(float(row.get("total_calorie", 0) or 0) for row in row_list) or 1
+    bars = []
+    for row in row_list:
+        label = escape(str(row.get("date", "-"))[-5:])
+        value = float(row.get("total_calorie", 0) or 0)
+        height = max(18, round(value / max_value * 150))
+        class_name = "chart-bar today" if row.get("label") == highlight_label else "chart-bar"
+        bars.append(
+            f"""
+            <div class="{class_name}">
+              <i style="height:{height}px"></i>
+              <span>{label}</span>
+              <b>{value:.0f}</b>
+            </div>
+            """
+        )
+    return f"""
+    <div class="chart-shell">
+      <div class="result-row">
+        <strong>近 7 日估算热量</strong>
+        <span class="tag warn">仅供饮食记录参考</span>
+      </div>
+      <div class="chart-bars">{"".join(bars)}</div>
+    </div>
+    """

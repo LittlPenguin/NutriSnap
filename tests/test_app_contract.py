@@ -43,3 +43,21 @@ def test_recognition_page_matches_open_design_key_states():
         assert text in components_source
     assert "Top-3 预测" in pages_source
     assert "模型未加载" in pages_source
+
+
+def test_history_calorie_and_stats_pages_match_open_design_sections():
+    pages_source = Path("ui/pages.py").read_text(encoding="utf-8")
+    components_source = Path("ui/components.py").read_text(encoding="utf-8")
+    styles_source = Path("ui/styles.py").read_text(encoding="utf-8")
+
+    for text in ["历史记录列表", "GPT 失败降级", "本地规则建议", "今日记录", "今日估算"]:
+        assert text in pages_source
+    for text in ["食物热量表", "Food-101 子集参考数据", "266 kcal / 100g", "默认份量", "热量表边界说明"]:
+        assert text in pages_source
+    for text in ["近 7 日估算热量", "常见食物排行", "累计记录", "累计热量", "今日热量", "结果边界说明"]:
+        assert text in pages_source
+
+    for function_name in ["history_record_card", "food_calorie_card", "ranking_row", "estimate_boundary_card"]:
+        assert function_name in components_source
+    for class_name in ["history-list", "food-grid", "chart-shell", "boundary-card"]:
+        assert class_name in styles_source

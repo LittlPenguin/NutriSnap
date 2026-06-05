@@ -224,6 +224,97 @@ def inject_css() -> None:
             font-size: 1.25rem;
             color: var(--nutri-text);
         }}
+        .history-list,
+        .food-grid,
+        .rank-list,
+        .chart-shell {{
+            display: grid;
+            gap: 10px;
+        }}
+        .history-list,
+        .food-grid {{
+            margin-top: 10px;
+        }}
+        .food-grid {{
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }}
+        .history-row,
+        .food-row,
+        .rank-row {{
+            align-items: flex-start;
+        }}
+        .history-row strong,
+        .food-row strong,
+        .rank-row strong {{
+            display: block;
+            margin-bottom: 4px;
+        }}
+        .history-row span,
+        .food-row span,
+        .rank-row span,
+        .history-row small,
+        .food-row small {{
+            display: block;
+            color: var(--nutri-muted);
+            font-size: 0.82rem;
+            line-height: 1.45;
+        }}
+        .history-row small,
+        .food-row small {{
+            margin-top: 5px;
+            max-width: 720px;
+        }}
+        .food-kcal {{
+            min-width: 132px;
+            text-align: right;
+        }}
+        .food-kcal b,
+        .rank-row b {{
+            display: block;
+            color: var(--nutri-accent);
+        }}
+        .food-kcal span {{
+            margin-top: 4px;
+        }}
+        .boundary-card p {{
+            margin: 6px 0 0;
+            color: var(--nutri-muted);
+            line-height: 1.55;
+        }}
+        .chart-shell {{
+            background: var(--nutri-card);
+            border: 1px solid var(--nutri-border);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: var(--nutri-shadow);
+            margin-bottom: 0.75rem;
+        }}
+        .chart-bars {{
+            min-height: 180px;
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 10px;
+            align-items: end;
+            padding-top: 12px;
+        }}
+        .chart-bar {{
+            display: grid;
+            gap: 6px;
+            align-items: end;
+            text-align: center;
+            color: var(--nutri-muted);
+            font-size: 0.78rem;
+        }}
+        .chart-bar i {{
+            display: block;
+            width: 100%;
+            min-height: 12px;
+            border-radius: 8px 8px 3px 3px;
+            background: #CFE8D8;
+        }}
+        .chart-bar.today i {{
+            background: var(--nutri-accent);
+        }}
         .upload-box {{
             min-height: 150px;
             border: 1px dashed rgba(92, 168, 120, 0.45);
@@ -371,6 +462,7 @@ def inject_css() -> None:
             .desktop-work,
             .desktop-two-col,
             .desktop-metrics,
+            .food-grid,
             .desktop-result-grid,
             .state-strip {{
                 grid-template-columns: 1fr;
