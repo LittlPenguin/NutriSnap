@@ -1,0 +1,9 @@
+streamlit>=1.36
+torch>=2.2
+torchvision>=0.17
+pillow>=10
+pandas>=2
+numpy>=1.26
+openai>=1.60
+python-dotenv>=1
+plotly>=5

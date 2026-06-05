@@ -1,5 +1,8 @@
 doc/
 opendesign-nutrisnap/
+dataset/
+checkpoints/
+runs/
 
 # Python cache and test artifacts
 __pycache__/
@@ -24,4 +27,6 @@ env/
 *.sqlite
 *.sqlite3
 models/*.pth
+models/*.pt
+models/*.onnx
 outputs/

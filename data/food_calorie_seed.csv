@@ -1,0 +1,13 @@
+class_name,name_cn,calorie_per_100g,default_weight_g,category,note
+pizza,披萨,266,150,快餐,示例热量按常见披萨估算
+hamburger,汉堡,295,180,快餐,不同品牌和配料会有差异
+sushi,寿司,150,180,主食,按常见寿司组合估算
+ramen,拉面,436,500,主食,按一碗拉面估算
+french_fries,薯条,312,120,快餐,油炸食品热量较高
+dumplings,饺子,200,200,主食,按普通猪肉/蔬菜饺子估算
+caesar_salad,凯撒沙拉,180,120,沙拉,酱料会明显影响热量
+cheesecake,芝士蛋糕,321,100,甜点,甜点热量较高
+chicken_curry,咖喱鸡,165,250,肉类,按常见咖喱鸡估算
+apple_pie,苹果派,237,120,甜点,按常见苹果派估算
+baby_back_ribs,烤肋排,292,250,肉类,按烤猪肋排估算
+beef_carpaccio,牛肉薄片,150,100,肉类,按牛肉冷盘估算
