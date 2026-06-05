@@ -328,7 +328,7 @@ def calorie_table_page(db) -> None:
     metric_grid(
         [
             ("支持类别", f"{len(all_foods)} 类", "Food-101 一期子集"),
-            ("设计示例", "266 kcal / 100g", "披萨热量口径"),
+            ("设计示例", "399 kcal", "150g × 266 kcal / 100g"),
             ("默认份量", "150g", "可在识别页修改"),
             ("数据来源", "SQLite", "food_calorie 表"),
         ]

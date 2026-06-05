@@ -88,3 +88,22 @@ def test_history_calorie_and_stats_pages_match_open_design_sections():
         assert function_name in components_source
     for class_name in ["history-list", "food-grid", "chart-shell", "boundary-card"]:
         assert class_name in styles_source
+
+
+def test_final_open_design_contract_and_blockers_are_recorded():
+    app_source = Path("app.py").read_text(encoding="utf-8")
+    pages_source = Path("ui/pages.py").read_text(encoding="utf-8")
+    components_source = Path("ui/components.py").read_text(encoding="utf-8")
+    blockers_source = Path("doc/开发阻塞记录.md").read_text(encoding="utf-8")
+    agents_source = Path("AGENTS.md").read_text(encoding="utf-8")
+
+    for route_key in ['"recognition"', '"history"', '"calories"', '"stats"', '"about"']:
+        assert route_key in app_source
+    for text in ["399 kcal", "266 kcal / 100g", "150g", "估算热量", "仅供饮食记录参考"]:
+        assert text in pages_source
+    for text in ["progress-list", "history-row", "food-row", "chart-shell", "bottom-nav", "desktop-nav"]:
+        assert text in components_source or text in pages_source
+    for blocker in ["OPENAI_API_KEY", "Food-101 子集真实图片", "models/food_resnet18.pth", "真机手机浏览器验收"]:
+        assert blocker in blockers_source
+    for rule in ["每完成一个阶段必须进行一次 Git 提交", "提交信息必须使用中文", "opendesign-nutrisnap/"]:
+        assert rule in agents_source
