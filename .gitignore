@@ -1,8 +1,9 @@
-doc/
 opendesign-nutrisnap/
 dataset/
 checkpoints/
 runs/
+doc/*.doc
+doc/*.docx
 
 # Python cache and test artifacts
 __pycache__/
