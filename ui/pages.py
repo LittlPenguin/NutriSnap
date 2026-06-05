@@ -11,7 +11,17 @@ from services.gpt_advice_service import generate_gpt_advice
 from services.predictor import predict_image
 from services.schemas import USER_GOALS
 from services.stats_service import get_daily_stats, get_food_ranking
-from ui.components import bottom_nav, brand_header, calorie_result_card, page_title, status_card, top3_progress
+from ui.components import (
+    bottom_nav,
+    brand_header,
+    calorie_result_card,
+    metric_grid,
+    page_title,
+    status_card,
+    top3_progress,
+    upload_state_card,
+    workflow_state_strip,
+)
 
 
 def read_uploaded_image(uploaded_file) -> Image.Image | None:
@@ -64,24 +74,66 @@ def render_prediction(prediction: dict) -> None:
 def recognition_page(db) -> None:
     brand_header("今天也记一餐", "食物识别")
     page_title("食物识别工作台", "上传图片、查看识别结果，输入重量后估算热量并生成饮食建议。", "估算热量")
+    history = db.list_history()
+    today = pd.Timestamp.now().strftime("%Y-%m-%d")
+    today_rows = [row for row in history if str(row["created_at"]).startswith(today)]
+    today_calorie = sum(float(row["total_calorie"]) for row in today_rows)
+    metric_grid(
+        [
+            ("今日已记录", f"{len(today_rows)} 次", "来自 SQLite 识别历史"),
+            ("今日估算", f"{today_calorie:.0f} kcal", "热量为估算值"),
+            ("支持格式", "jpg / png", "手机端可拍照或相册上传"),
+            ("建议模式", "GPT / 本地规则", "失败时自动降级"),
+        ]
+    )
 
     left, right = st.columns([1, 1], gap="large")
     with left:
-        st.markdown('<div class="result-card"><strong>上传食物图片</strong>', unsafe_allow_html=True)
+        st.markdown(
+            """
+            <div class="result-card">
+              <div class="result-row">
+                <div>
+                  <strong>上传食物图片</strong><br>
+                  <span class="small-label">支持 PC 文件选择、移动端拍照 / 相册上传</span>
+                </div>
+                <span class="tag primary">图片预览</span>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         uploaded_file = st.file_uploader(
             "支持拍照或从相册选择",
             type=["jpg", "jpeg", "png"],
             label_visibility="visible",
         )
         image = read_uploaded_image(uploaded_file)
+        upload_state_card(image is not None, uploaded_file.name if uploaded_file else None)
         if image is not None:
             st.image(image, caption=uploaded_file.name, use_container_width=True)
+            st.markdown(
+                '<div class="preview-meta"><span>已上传预览</span><span>仅用于本地识别</span></div>',
+                unsafe_allow_html=True,
+            )
         else:
-            st.info("上传图片后可查看预览并开始识别。")
-        st.markdown("</div>", unsafe_allow_html=True)
+            workflow_state_strip("未上传")
 
     with right:
-        st.subheader("识别与估算")
+        st.markdown(
+            """
+            <div class="result-card">
+              <div class="result-row">
+                <div>
+                  <strong>识别结果与估算</strong><br>
+                  <span class="small-label">ResNet18 输出类别、置信度和 Top-3</span>
+                </div>
+                <span class="tag primary">工作台</span>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         if "prediction" not in st.session_state:
             st.session_state.prediction = None
         if "calorie_result" not in st.session_state:
@@ -97,6 +149,7 @@ def recognition_page(db) -> None:
 
         prediction = st.session_state.prediction
         if prediction:
+            workflow_state_strip("识别完成")
             render_prediction(prediction)
 
         foods = {food["class_name"]: food for food in db.list_foods()}
@@ -106,11 +159,23 @@ def recognition_page(db) -> None:
             default_weight = int(foods[prediction["predicted_class"]]["default_weight_g"])
 
         weight_g = st.number_input("本次份量（g）", min_value=1, max_value=3000, value=default_weight, step=10)
+        st.markdown(
+            f"""
+            <div class="result-card">
+              <div class="input-line">
+                <div><strong>本次份量</strong><div class="input-like">{int(weight_g)}</div></div>
+                <span class="tag">g</span>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
         user_goal = st.segmented_control("用户目标", USER_GOALS, default="普通饮食")
 
         if st.button("计算热量并生成建议", disabled=not can_calculate):
             calorie_service = CalorieService(db)
             calorie_result = calorie_service.calculate_calorie(prediction["predicted_class"], weight_g)
+            workflow_state_strip("GPT 生成中")
             with st.spinner("正在生成 GPT 饮食建议..."):
                 advice_result = generate_gpt_advice(
                     calorie_result["name_cn"],
@@ -151,6 +216,7 @@ def recognition_page(db) -> None:
             calorie_result_card(str(calorie_result["total_calorie"]), str(calorie_result["calorie_per_100g"]))
         if advice_result:
             status = "GPT 饮食建议" if advice_result["status"] == "success" else "本地规则建议"
+            workflow_state_strip("GPT 建议完成" if advice_result["status"] == "success" else "本地规则建议")
             st.markdown(
                 f"""
                 <div class="result-card advice-card">

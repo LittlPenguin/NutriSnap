@@ -73,6 +73,11 @@ def metric_card(label: str, value: str, helper: str | None = None) -> str:
     return f'<div class="desktop-stat"><span>{escape(label)}</span><strong>{escape(value)}</strong>{helper_html}</div>'
 
 
+def metric_grid(metrics: Iterable[tuple[str, str, str | None]]) -> None:
+    cards = "".join(metric_card(label, value, helper) for label, value, helper in metrics)
+    st.markdown(f'<div class="desktop-metrics">{cards}</div>', unsafe_allow_html=True)
+
+
 def top3_progress(items: Iterable[dict]) -> str:
     rows = []
     for item in items:
@@ -115,3 +120,47 @@ def status_card(title: str, body: str, kind: str = "warning") -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def upload_state_card(has_image: bool, filename: str | None = None) -> None:
+    if has_image:
+        title = "已上传预览"
+        body = filename or "图片已读取"
+        helper = "图片用于本地模型识别，GPT 建议不接收原图。"
+        tag = '<span class="tag primary">已上传</span>'
+    else:
+        title = "未上传状态"
+        body = "拍照 / 相册 · 支持 jpg、jpeg、png"
+        helper = "上传后可查看预览并开始识别。"
+        tag = '<span class="tag warn">待上传</span>'
+    st.markdown(
+        f"""
+        <div class="upload-box">
+          <div>
+            <div class="result-row" style="justify-content:center">
+              <strong>{escape(title)}</strong>{tag}
+            </div>
+            <p style="margin:8px 0 4px">{escape(body)}</p>
+            <span class="small-label">{escape(helper)}</span>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def workflow_state_strip(active: str) -> None:
+    states = [
+        ("未上传", "上传框默认状态"),
+        ("已上传预览", "图片预览"),
+        ("识别完成", "类别、置信度、Top-3"),
+        ("GPT 生成中", "加载状态"),
+        ("GPT 建议完成", "中文建议卡片"),
+        ("本地规则建议", "API 失败降级"),
+    ]
+    items = []
+    for title, body in states:
+        class_name = "state-item advice-card" if title == active else "state-item"
+        marker = '<i class="loading-line"></i>' if title == "GPT 生成中" and active == title else escape(body)
+        items.append(f'<div class="{class_name}"><strong>{escape(title)}</strong><span>{marker}</span></div>')
+    st.markdown(f'<div class="state-strip">{"".join(items)}</div>', unsafe_allow_html=True)

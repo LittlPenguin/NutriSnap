@@ -44,6 +44,7 @@ def inject_css() -> None:
         .desktop-top,
         .app-header,
         .result-row,
+        .input-line,
         .history-row,
         .food-row,
         .rank-row {{
@@ -188,7 +189,8 @@ def inject_css() -> None:
         .desktop-work,
         .desktop-two-col,
         .desktop-metrics,
-        .stat-grid {{
+        .stat-grid,
+        .desktop-result-grid {{
             display: grid;
             gap: 14px;
         }}
@@ -199,6 +201,9 @@ def inject_css() -> None:
         .desktop-metrics {{
             grid-template-columns: repeat(4, minmax(0, 1fr));
             margin-bottom: 14px;
+        }}
+        .desktop-result-grid {{
+            grid-template-columns: repeat(2, minmax(0, 1fr));
         }}
         .stat-grid {{
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -218,6 +223,71 @@ def inject_css() -> None:
         .stat-box strong {{
             font-size: 1.25rem;
             color: var(--nutri-text);
+        }}
+        .upload-box {{
+            min-height: 150px;
+            border: 1px dashed rgba(92, 168, 120, 0.45);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background: #FBFDFB;
+            color: var(--nutri-muted);
+            margin: 12px 0;
+            padding: 18px;
+        }}
+        .preview-meta {{
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 8px;
+            color: var(--nutri-muted);
+            font-size: 0.85rem;
+        }}
+        .input-like {{
+            min-width: 92px;
+            margin-top: 6px;
+            padding: 9px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--nutri-border);
+            background: #fff;
+            font-weight: 760;
+            color: var(--nutri-text);
+        }}
+        .state-strip {{
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 10px;
+            margin: 10px 0 14px;
+        }}
+        .state-item {{
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--nutri-border);
+            background: #fff;
+        }}
+        .state-item strong,
+        .state-item span {{
+            display: block;
+        }}
+        .state-item span {{
+            color: var(--nutri-muted);
+            font-size: 0.78rem;
+            margin-top: 3px;
+        }}
+        .loading-line {{
+            display: inline-block;
+            width: 72px;
+            height: 8px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #DDEFE3, var(--nutri-primary), #DDEFE3);
+            background-size: 200% 100%;
+            animation: nutri-loading 1.4s infinite linear;
+        }}
+        @keyframes nutri-loading {{
+            from {{ background-position: 200% 0; }}
+            to {{ background-position: -200% 0; }}
         }}
         .bottom-nav {{
             display: none;
@@ -300,7 +370,9 @@ def inject_css() -> None:
             }}
             .desktop-work,
             .desktop-two-col,
-            .desktop-metrics {{
+            .desktop-metrics,
+            .desktop-result-grid,
+            .state-strip {{
                 grid-template-columns: 1fr;
             }}
             .table-row {{

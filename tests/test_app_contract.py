@@ -31,3 +31,15 @@ def test_design_system_tokens_and_core_component_classes_exist():
         assert class_name in styles_source
     for function_name in ["brand_header", "bottom_nav", "top3_progress", "calorie_result_card"]:
         assert function_name in components_source
+
+
+def test_recognition_page_matches_open_design_key_states():
+    pages_source = Path("ui/pages.py").read_text(encoding="utf-8")
+    components_source = Path("ui/components.py").read_text(encoding="utf-8")
+
+    for text in ["今天也记一餐", "今日已记录", "上传食物图片", "已上传预览", "本次份量", "GPT 饮食建议"]:
+        assert text in pages_source
+    for text in ["未上传状态", "识别完成", "GPT 生成中", "GPT 建议完成", "本地规则建议"]:
+        assert text in components_source
+    assert "Top-3 预测" in pages_source
+    assert "模型未加载" in pages_source
