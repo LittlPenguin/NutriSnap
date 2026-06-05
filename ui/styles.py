@@ -94,7 +94,7 @@ def inject_css() -> None:
             gap: 8px;
             flex-wrap: wrap;
         }}
-        .desktop-nav span,
+        .desktop-nav a,
         .chip,
         .tag {{
             border: 1px solid var(--nutri-border);
@@ -105,14 +105,20 @@ def inject_css() -> None:
             font-size: 0.82rem;
             line-height: 1;
             white-space: nowrap;
+            text-decoration: none;
         }}
-        .desktop-nav span.active,
+        .desktop-nav a.active,
         .chip.active,
         .tag.primary {{
             border-color: rgba(92, 168, 120, 0.25);
             background: var(--nutri-good);
             color: var(--nutri-primary);
             font-weight: 700;
+        }}
+        .desktop-nav a:hover,
+        .nav-item:hover {{
+            color: var(--nutri-primary);
+            text-decoration: none;
         }}
         .tag.warn {{
             border-color: rgba(244, 162, 97, 0.28);
@@ -398,6 +404,7 @@ def inject_css() -> None:
             text-align: center;
             color: var(--nutri-muted);
             font-size: 0.78rem;
+            text-decoration: none;
         }}
         .nav-item.active {{
             color: var(--nutri-primary);

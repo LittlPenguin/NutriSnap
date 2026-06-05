@@ -8,6 +8,8 @@ def test_app_routes_five_pages_and_about_page_has_no_tech_stack_card():
     pages_source = Path("ui/pages.py").read_text(encoding="utf-8")
 
     assert '["食物识别", "历史记录", "热量表", "统计分析", "系统说明"]' in app_source
+    assert "st.query_params" in app_source
+    assert "st.tabs" not in app_source
     assert "recognition_page(db)" in app_source
     assert "history_page(db)" in app_source
     assert "calorie_table_page(db)" in app_source
@@ -18,6 +20,31 @@ def test_app_routes_five_pages_and_about_page_has_no_tech_stack_card():
     assert "不作为医学或营养诊断" in pages_source
     about_source = pages_source.split("def about_page() -> None:", maxsplit=1)[1]
     about_source = about_source.split("def main() -> None:", maxsplit=1)[0]
+    assert "技术栈" not in about_source
+
+
+def test_dual_navigation_matches_open_design_labels_and_links():
+    components_source = Path("ui/components.py").read_text(encoding="utf-8")
+    styles_source = Path("ui/styles.py").read_text(encoding="utf-8")
+
+    for label in ["食物识别", "历史记录", "热量表", "统计分析", "系统说明"]:
+        assert label in components_source
+    for short_label in ["识别", "历史", "热量表", "统计", "说明"]:
+        assert short_label in components_source
+    for text in ['href="?page=', "desktop-nav", "bottom-nav", "nav-item", "active"]:
+        assert text in components_source
+    for selector in [".desktop-nav a", ".nav-item", ".bottom-nav"]:
+        assert selector in styles_source
+
+
+def test_about_page_matches_open_design_boundary_sections():
+    pages_source = Path("ui/pages.py").read_text(encoding="utf-8")
+    about_source = pages_source.split("def about_page() -> None:", maxsplit=1)[1]
+
+    for text in ["项目简介", "使用步骤", "模型与数据边界", "GPT-5 功能边界", "免责声明"]:
+        assert text in about_source
+    for text in ["不作为医学或营养诊断", "不会仅凭图片自动精确估重", "GPT-5 不参与图像识别"]:
+        assert text in about_source
     assert "技术栈" not in about_source
 
 

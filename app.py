@@ -13,6 +13,8 @@ from ui.pages import (
 from ui.styles import inject_css
 
 PAGE_LABELS = ["食物识别", "历史记录", "热量表", "统计分析", "系统说明"]
+PAGE_KEYS = {"recognition", "history", "calories", "stats", "about"}
+DEFAULT_PAGE = "recognition"
 
 
 st.set_page_config(
@@ -27,20 +29,27 @@ def load_db():
     return get_database()
 
 
+def current_page_key() -> str:
+    raw_page = st.query_params.get("page", DEFAULT_PAGE)
+    if isinstance(raw_page, list):
+        raw_page = raw_page[0] if raw_page else DEFAULT_PAGE
+    return raw_page if raw_page in PAGE_KEYS else DEFAULT_PAGE
+
+
 def main() -> None:
     inject_css()
     db = load_db()
-    tabs = st.tabs(PAGE_LABELS)
-    with tabs[0]:
-        recognition_page(db)
-    with tabs[1]:
+    active_page = current_page_key()
+    if active_page == "history":
         history_page(db)
-    with tabs[2]:
+    elif active_page == "calories":
         calorie_table_page(db)
-    with tabs[3]:
+    elif active_page == "stats":
         stats_page(db)
-    with tabs[4]:
+    elif active_page == "about":
         about_page()
+    else:
+        recognition_page(db)
 
 
 if __name__ == "__main__":

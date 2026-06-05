@@ -6,17 +6,25 @@ from html import escape
 import streamlit as st
 
 PAGE_ITEMS = [
-    ("食物识别", "图", "识别"),
-    ("历史记录", "时", "历史"),
-    ("热量表", "表", "热量表"),
-    ("统计分析", "柱", "统计"),
-    ("系统说明", "i", "说明"),
+    ("食物识别", "recognition", "图", "识别"),
+    ("历史记录", "history", "时", "历史"),
+    ("热量表", "calories", "表", "热量表"),
+    ("统计分析", "stats", "柱", "统计"),
+    ("系统说明", "about", "i", "说明"),
 ]
+
+
+def page_key(label: str) -> str:
+    for item_label, key, _, _ in PAGE_ITEMS:
+        if item_label == label:
+            return key
+    return PAGE_ITEMS[0][1]
 
 
 def brand_header(subtitle: str, active_page: str | None = None) -> None:
     nav = "".join(
-        f'<span class="{"active" if label == active_page else ""}">{label}</span>' for label, _, _ in PAGE_ITEMS
+        f'<a class="{"active" if label == active_page else ""}" href="?page={key}">{escape(label)}</a>'
+        for label, key, _, _ in PAGE_ITEMS
     )
     st.markdown(
         f"""
@@ -54,12 +62,12 @@ def page_title(title: str, description: str, tag: str | None = None, tag_kind: s
 def bottom_nav(active_page: str) -> None:
     items = "".join(
         f"""
-        <span class="nav-item {'active' if label == active_page else ''}">
+        <a class="nav-item {'active' if label == active_page else ''}" href="?page={key}">
           <span class="nav-icon">{escape(icon)}</span>
           <span>{escape(short)}</span>
-        </span>
+        </a>
         """
-        for label, icon, short in PAGE_ITEMS
+        for label, key, icon, short in PAGE_ITEMS
     )
     st.markdown(f'<nav class="bottom-nav">{items}</nav>', unsafe_allow_html=True)
 
