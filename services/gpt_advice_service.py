@@ -7,6 +7,8 @@ from typing import Any
 from dotenv import load_dotenv
 from openai import OpenAI
 
+from services.schemas import PROJECT_ROOT
+
 
 @dataclass(frozen=True)
 class OpenAISettings:
@@ -28,7 +30,7 @@ def _clean(value: Any) -> str | None:
 
 
 def resolve_openai_settings(overrides: dict[str, Any] | OpenAISettings | None = None) -> OpenAISettings:
-    load_dotenv()
+    load_dotenv(PROJECT_ROOT / ".env")
     if isinstance(overrides, OpenAISettings):
         return overrides
 

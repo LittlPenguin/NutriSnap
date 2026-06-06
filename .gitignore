@@ -24,6 +24,7 @@ env/
 .streamlit/secrets.toml
 
 # Local data and model artifacts
+testData/
 *.db
 *.sqlite
 *.sqlite3
