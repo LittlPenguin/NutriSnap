@@ -7,6 +7,7 @@ from services.gpt_advice_service import (
     generate_gpt_advice,
     mask_api_key,
     resolve_openai_settings,
+    stream_model_advice,
 )
 
 
@@ -212,3 +213,85 @@ def test_api_base_url_accepts_root_or_endpoint_urls():
         _api_base_url("https://api.example.test/v1/chat/completions")
         == "https://api.example.test/v1"
     )
+
+
+def test_stream_model_advice_yields_delta_and_done(monkeypatch):
+    calls = []
+
+    def fake_stream_json(api_key, base_url, endpoint, payload):
+        calls.append((api_key, base_url, endpoint, payload))
+        yield {"type": "delta", "text": "这份披萨"}
+        yield {"type": "delta", "text": "热量约399 kcal。"}
+        yield {"type": "done", "text": "这份披萨热量约399 kcal。"}
+
+    monkeypatch.setattr("services.gpt_advice_service._stream_json", fake_stream_json)
+
+    events = list(
+        stream_model_advice(
+            "披萨",
+            150,
+            399,
+            "减脂",
+            settings=OpenAISettings("test-key", "https://api.example.test/v1", "model-x", "session"),
+        )
+    )
+
+    assert [event["type"] for event in events] == ["delta", "delta", "done"]
+    assert events[-1]["text"] == "这份披萨热量约399 kcal。"
+    assert calls[0][2] == "chat/completions"
+    assert calls[0][3]["model"] == "model-x"
+    assert calls[0][3]["stream"] is True
+
+
+def test_stream_model_advice_reports_error_reason_without_key(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "")
+
+    events = list(stream_model_advice("披萨", 150, 399, "减脂"))
+
+    assert events[-1]["type"] == "error"
+    assert "API Key 未配置" in events[-1]["reason"]
+    assert "本地规则建议" in events[-1]["fallback"]
+
+
+def test_stream_model_advice_reports_http_error_reason(monkeypatch):
+    def fake_stream_json(api_key, base_url, endpoint, payload):
+        raise RuntimeError("HTTP 403 PermissionDenied")
+        yield
+
+    monkeypatch.setattr("services.gpt_advice_service._stream_json", fake_stream_json)
+
+    events = list(
+        stream_model_advice(
+            "披萨",
+            150,
+            399,
+            "减脂",
+            settings=OpenAISettings("test-key", "https://api.example.test/v1", "model-x", "session"),
+        )
+    )
+
+    assert events[-1]["type"] == "error"
+    assert "HTTP 403 PermissionDenied" in events[-1]["reason"]
+    assert "本地规则建议" in events[-1]["fallback"]
+
+
+def test_stream_model_advice_reports_empty_stream(monkeypatch):
+    def fake_stream_json(api_key, base_url, endpoint, payload):
+        if False:
+            yield {"type": "delta", "text": ""}
+
+    monkeypatch.setattr("services.gpt_advice_service._stream_json", fake_stream_json)
+
+    events = list(
+        stream_model_advice(
+            "披萨",
+            150,
+            399,
+            "减脂",
+            settings=OpenAISettings("test-key", "https://api.example.test/v1", "model-x", "session"),
+        )
+    )
+
+    assert events[-1]["type"] == "error"
+    assert events[-1]["reason"] == "empty streaming response"
+    assert "本地规则建议" in events[-1]["fallback"]

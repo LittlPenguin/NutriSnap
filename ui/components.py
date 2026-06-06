@@ -10,7 +10,6 @@ PAGE_ITEMS = [
     ("历史记录", "history", "时", "历史"),
     ("热量表", "calories", "表", "热量表"),
     ("统计分析", "stats", "柱", "统计"),
-    ("系统说明", "about", "i", "说明"),
 ]
 
 
@@ -97,7 +96,7 @@ def bottom_nav(active_page: str) -> None:
             '<span class="bottom-nav mobile-nav-grid nav-item active" aria-hidden="true">移动端底部导航</span>',
             unsafe_allow_html=True,
         )
-        columns = st.columns(5)
+        columns = st.columns(4)
         selected_page = None
         for column, (_, key, _, _) in zip(columns, PAGE_ITEMS, strict=True):
             with column:
@@ -174,7 +173,7 @@ def upload_state_card(has_image: bool, filename: str | None = None) -> None:
     if has_image:
         title = "已上传预览"
         body = filename or "图片已读取"
-        helper = "图片用于本地模型识别，GPT 建议不接收原图。"
+        helper = "图片用于本地模型识别，Model 建议不接收原图。"
         tag = '<span class="tag primary">已上传</span>'
     else:
         title = "未上传状态"
@@ -202,14 +201,14 @@ def workflow_state_strip(active: str) -> None:
         ("未上传", "上传框默认状态"),
         ("已上传预览", "图片预览"),
         ("识别完成", "类别、置信度、Top-3"),
-        ("GPT 生成中", "加载状态"),
-        ("GPT 建议完成", "中文建议卡片"),
-        ("本地规则建议", "API 失败降级"),
+        ("Model 生成中", "加载状态"),
+        ("生成完毕", "中文建议卡片"),
+        ("失败：", "显示错误原因"),
     ]
     items = []
     for title, body in states:
         class_name = "state-item advice-card" if title == active else "state-item"
-        marker = '<i class="loading-line"></i>' if title == "GPT 生成中" and active == title else escape(body)
+        marker = '<i class="loading-line"></i>' if title == "Model 生成中" and active == title else escape(body)
         items.append(f'<div class="{class_name}"><strong>{escape(title)}</strong><span>{marker}</span></div>')
     st.markdown(f'<div class="state-strip">{"".join(items)}</div>', unsafe_allow_html=True)
 
@@ -289,7 +288,7 @@ def daily_bar_chart(rows: Iterable[dict], highlight_label: str = "今天") -> st
     if not row_list:
         return """
         <div class="chart-shell">
-          <strong>近 7 日估算热量</strong>
+          <strong>估算热量参考</strong>
           <div class="upload-box" style="min-height:120px">
             暂无统计数据，完成一次识别后生成柱状图。
           </div>
@@ -315,7 +314,7 @@ def daily_bar_chart(rows: Iterable[dict], highlight_label: str = "今天") -> st
     return f"""
     <div class="chart-shell">
       <div class="result-row">
-        <strong>近 7 日估算热量</strong>
+        <strong>估算热量参考</strong>
         <span class="tag warn">仅供饮食记录参考</span>
       </div>
       <div class="chart-bars">{"".join(bars)}</div>

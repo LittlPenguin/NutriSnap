@@ -535,7 +535,7 @@ def inject_css() -> None:
             div[data-testid="stVerticalBlock"][class*="st-key-bottom_nav_container_"]
             div[data-testid="stHorizontalBlock"] {{
                 display: grid !important;
-                grid-template-columns: repeat(5, minmax(0, 1fr));
+                grid-template-columns: repeat(4, minmax(0, 1fr));
                 gap: 4px;
                 align-items: stretch;
             }}

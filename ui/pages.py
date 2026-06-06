@@ -8,15 +8,14 @@ import streamlit as st
 from PIL import Image, UnidentifiedImageError
 
 from services.calorie_service import CalorieService
-from services.gpt_advice_service import generate_gpt_advice, mask_api_key, resolve_openai_settings
+from services.gpt_advice_service import mask_api_key, resolve_openai_settings, stream_model_advice
 from services.predictor import predict_image
 from services.schemas import USER_GOALS
-from services.stats_service import get_daily_stats, get_food_ranking
+from services.stats_service import get_food_ranking
 from ui.components import (
     bottom_nav,
     brand_header,
     calorie_result_card,
-    daily_bar_chart,
     estimate_boundary_card,
     food_calorie_card,
     history_record_card,
@@ -30,6 +29,8 @@ from ui.components import (
 )
 
 OPENAI_SESSION_CONFIG_KEY = "openai_session_config"
+LATEST_IMAGE_BYTES_KEY = "latest_uploaded_image_bytes"
+LATEST_IMAGE_NAME_KEY = "latest_uploaded_image_name"
 
 
 def read_uploaded_image(uploaded_file) -> Image.Image | None:
@@ -68,11 +69,11 @@ def render_openai_config_panel() -> dict[str, str]:
         "default": "默认配置",
     }.get(settings.source, settings.source)
     if not settings.has_api_key:
-        source_status = "当前未配置 API Key，使用本地规则建议"
+        source_status = "当前未配置 API Key，Model 建议将显示失败原因"
     else:
         source_status = f"当前使用：{source_text} · Key {mask_api_key(settings.api_key)}"
 
-    with st.expander("GPT 配置", expanded=False):
+    with st.expander("Model 配置", expanded=False):
         st.markdown(
             f"""
             <div class="result-card advice-card">
@@ -155,6 +156,100 @@ def render_prediction(prediction: dict) -> None:
         )
 
 
+def render_model_advice_stream(
+    calorie_result: dict,
+    user_goal: str,
+    openai_config: dict[str, str],
+) -> dict[str, str]:
+    status_placeholder = st.empty()
+    advice_placeholder = st.empty()
+    workflow_state_strip("Model 生成中")
+    status_placeholder.markdown(
+        (
+            '<div class="result-card advice-card"><strong>Model 生成中</strong><br>'
+            '<span class="small-label">正在流式生成建议...</span></div>'
+        ),
+        unsafe_allow_html=True,
+    )
+
+    chunks: list[str] = []
+    for event in stream_model_advice(
+        calorie_result["name_cn"],
+        calorie_result["weight_g"],
+        calorie_result["total_calorie"],
+        user_goal,
+        settings=openai_config,
+    ):
+        event_type = event.get("type")
+        if event_type == "delta":
+            chunks.append(event.get("text", ""))
+            advice_placeholder.markdown(
+                f"""
+                <div class="result-card advice-card">
+                  <strong>Model 饮食建议</strong><br>
+                  {escape("".join(chunks))}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+        elif event_type == "done":
+            final_text = event.get("text") or "".join(chunks)
+            status_placeholder.markdown(
+                (
+                    '<div class="result-card advice-card"><strong>生成完毕</strong><br>'
+                    '<span class="small-label">Model 建议已完成。</span></div>'
+                ),
+                unsafe_allow_html=True,
+            )
+            advice_placeholder.markdown(
+                f"""
+                <div class="result-card advice-card">
+                  <strong>Model 饮食建议</strong><br>
+                  {escape(final_text)}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            workflow_state_strip("生成完毕")
+            return {"status": "success", "advice": final_text}
+        elif event_type == "error":
+            reason = event.get("reason", "未知错误")
+            fallback = event.get("fallback", "")
+            status_placeholder.markdown(
+                f"""
+                <div class="result-card warning-card">
+                  <strong>失败：{escape(reason)}</strong><br>
+                  <span class="small-label">已显示降级建议内容。</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            advice_placeholder.markdown(
+                f"""
+                <div class="result-card warning-card">
+                  <strong>失败降级建议</strong><br>
+                  {escape(fallback)}
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            workflow_state_strip("失败：")
+            return {"status": "error", "advice": fallback, "error_reason": reason}
+
+    reason = "empty streaming response"
+    fallback = (
+        "Model 调用失败，本地规则建议："
+        f"{calorie_result['name_cn']}{calorie_result['weight_g']}g "
+        f"估算约 {calorie_result['total_calorie']} kcal。不作为医学或营养诊断。"
+    )
+    status_placeholder.markdown(
+        f'<div class="result-card warning-card"><strong>失败：{reason}</strong></div>',
+        unsafe_allow_html=True,
+    )
+    workflow_state_strip("失败：")
+    return {"status": "error", "advice": fallback, "error_reason": reason}
+
+
 def recognition_page(db) -> None:
     brand_header("今天也记一餐", "食物识别")
     page_title("食物识别工作台", "上传图片、查看识别结果，输入重量后估算热量并生成饮食建议。", "估算热量")
@@ -167,7 +262,7 @@ def recognition_page(db) -> None:
             ("今日已记录", f"{len(today_rows)} 次", "来自 SQLite 识别历史"),
             ("今日估算", f"{today_calorie:.0f} kcal", "热量为估算值"),
             ("支持格式", "jpg / png", "手机端可拍照或相册上传"),
-            ("建议模式", "GPT / 本地规则", "失败时自动降级"),
+            ("建议模式", "Model 流式", "失败时显示原因"),
         ]
     )
 
@@ -195,6 +290,8 @@ def recognition_page(db) -> None:
         image = read_uploaded_image(uploaded_file)
         upload_state_card(image is not None, uploaded_file.name if uploaded_file else None)
         if image is not None:
+            st.session_state[LATEST_IMAGE_BYTES_KEY] = uploaded_file.getvalue()
+            st.session_state[LATEST_IMAGE_NAME_KEY] = uploaded_file.name
             st.image(image, caption=uploaded_file.name, use_container_width=True)
             st.markdown(
                 '<div class="preview-meta"><span>已上传预览</span><span>仅用于本地识别</span></div>',
@@ -260,15 +357,7 @@ def recognition_page(db) -> None:
         if st.button("计算热量并生成建议", disabled=not can_calculate):
             calorie_service = CalorieService(db)
             calorie_result = calorie_service.calculate_calorie(prediction["predicted_class"], weight_g)
-            workflow_state_strip("GPT 生成中")
-            with st.spinner("正在生成 GPT 饮食建议..."):
-                advice_result = generate_gpt_advice(
-                    calorie_result["name_cn"],
-                    calorie_result["weight_g"],
-                    calorie_result["total_calorie"],
-                    user_goal,
-                    settings=openai_config,
-                )
+            advice_result = render_model_advice_stream(calorie_result, user_goal, openai_config)
             history_id = db.save_history(
                 {
                     "image_name": uploaded_file.name if uploaded_file else "",
@@ -301,13 +390,17 @@ def recognition_page(db) -> None:
         if calorie_result:
             calorie_result_card(str(calorie_result["total_calorie"]), str(calorie_result["calorie_per_100g"]))
         if advice_result:
-            status = "GPT 饮食建议" if advice_result["status"] == "success" else "本地规则建议"
-            workflow_state_strip("GPT 建议完成" if advice_result["status"] == "success" else "本地规则建议")
+            status = (
+                "Model 饮食建议"
+                if advice_result["status"] == "success"
+                else f"失败：{advice_result.get('error_reason', '未知错误')}"
+            )
+            workflow_state_strip("生成完毕" if advice_result["status"] == "success" else "失败：")
             st.markdown(
                 f"""
                 <div class="result-card advice-card">
-                  <strong>{status}</strong><br>
-                  {advice_result["advice"]}
+                  <strong>{escape(status)}</strong><br>
+                  {escape(advice_result["advice"])}
                 </div>
                 """,
                 unsafe_allow_html=True,
@@ -317,19 +410,17 @@ def recognition_page(db) -> None:
 
 def history_page(db) -> None:
     brand_header("识别历史与建议摘要", "历史记录")
-    page_title("历史记录", "按时间倒序查看饮食记录，移动端使用卡片，PC 端保留宽屏表格。", "含 GPT 失败降级提示", "warn")
+    page_title("历史记录", "按时间倒序查看饮食记录，移动端使用卡片，PC 端保留宽屏表格。")
     history = db.list_history()
-    advice_logs = db.list_gpt_advice_logs()
     today = pd.Timestamp.now().strftime("%Y-%m-%d")
     today_rows = [row for row in history if str(row["created_at"]).startswith(today)]
     today_calorie = sum(float(row["total_calorie"]) for row in today_rows)
-    fallback_count = sum(1 for row in advice_logs if row.get("status") in {"fallback", "error"})
     metric_grid(
         [
             ("今日记录", f"{len(today_rows)} 次", "今天保存的识别历史"),
             ("今日估算", f"{today_calorie:.0f} kcal", "仅供饮食记录参考"),
             ("累计记录", f"{len(history)} 次", "按时间倒序展示"),
-            ("降级建议", f"{fallback_count} 条", "GPT 失败时使用本地规则建议"),
+            ("建议摘要", f"{len(history)} 条", "随识别历史保存"),
         ]
     )
 
@@ -362,7 +453,7 @@ def history_page(db) -> None:
               </div>
               <div class="desktop-table">
                 <div class="table-row table-head">
-                  <span>食物</span><span>重量</span><span>估算热量</span><span>置信度</span><span>GPT 建议摘要</span>
+                  <span>食物</span><span>重量</span><span>估算热量</span><span>置信度</span><span>Model 建议摘要</span>
                 </div>
                 <div class="table-row">
                   <span>暂无记录</span><span>-</span><span>-</span><span>-</span><span>完成识别后自动保存</span>
@@ -371,10 +462,6 @@ def history_page(db) -> None:
             </div>
             """,
             unsafe_allow_html=True,
-        )
-        estimate_boundary_card(
-            "GPT 失败降级",
-            "API key 未配置、网络失败或超时时，系统仍会展示本地规则建议，并在日志中记录 fallback 或 error。",
         )
         bottom_nav("历史记录")
         return
@@ -417,17 +504,13 @@ def history_page(db) -> None:
           </div>
           <div class="desktop-table">
             <div class="table-row table-head">
-              <span>食物</span><span>重量</span><span>估算热量</span><span>置信度</span><span>GPT 建议摘要</span>
+              <span>食物</span><span>重量</span><span>估算热量</span><span>置信度</span><span>Model 建议摘要</span>
             </div>
             {"".join(table_rows)}
           </div>
         </div>
         """,
         unsafe_allow_html=True,
-    )
-    estimate_boundary_card(
-        "本地规则建议",
-        "当 GPT API key 未配置、网络失败或响应超时时，系统仍保存历史记录，并展示本地规则建议。",
     )
     bottom_nav("历史记录")
 
@@ -483,7 +566,7 @@ def calorie_table_page(db) -> None:
 
 def stats_page(db) -> None:
     brand_header("估算摄入趋势与常见食物", "统计分析")
-    page_title("统计分析", "查看记录次数、累计热量、今日热量、近 7 日估算热量和常见食物排行。", "趋势参考")
+    page_title("统计分析", "查看记录次数、累计热量、今日热量、最新上传食物图和常见食物排行。", "趋势参考")
     history = db.list_history()
     total_records = len(history)
     total_calorie = sum(float(row["total_calorie"]) for row in history)
@@ -499,17 +582,26 @@ def stats_page(db) -> None:
         ]
     )
 
-    daily_stats = get_daily_stats(db)
-    if daily_stats.empty:
-        st.markdown(daily_bar_chart([]), unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div class="result-card">
+          <div class="result-row">
+            <strong>最新上传食物图</strong>
+            <span class="tag primary">当前会话</span>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    latest_image = st.session_state.get(LATEST_IMAGE_BYTES_KEY)
+    if latest_image:
+        st.image(
+            latest_image,
+            caption=st.session_state.get(LATEST_IMAGE_NAME_KEY, "最新上传食物图"),
+            use_container_width=True,
+        )
     else:
-        chart_rows = []
-        for row in daily_stats.to_dict("records"):
-            row = dict(row)
-            if row["date"] == today:
-                row["label"] = "今天"
-            chart_rows.append(row)
-        st.markdown(daily_bar_chart(chart_rows), unsafe_allow_html=True)
+        st.info("暂无上传图片")
 
     ranking = get_food_ranking(db)
     if ranking.empty:
@@ -537,67 +629,7 @@ def stats_page(db) -> None:
             unsafe_allow_html=True,
         )
     estimate_boundary_card(
-        "结果边界说明",
-        "统计分析基于识别历史中的估算热量，不代表真实摄入精确值，也不作为医学或营养诊断。",
+        "说明",
+        "基于识别历史中的估算热量，不作为医学或营养诊断。",
     )
     bottom_nav("统计分析")
-
-
-def about_page() -> None:
-    brand_header("项目说明与功能边界", "系统说明")
-    page_title("系统说明", "说明项目目标、使用步骤和功能限制。", "不作为医学或营养诊断", "warn")
-    st.markdown(
-        """
-        <div class="result-card">
-          <strong>项目简介</strong>
-          <p>
-            本系统通过食物图像识别和热量表估算，为用户提供日常饮食记录参考。
-            用户上传食物图片后，可查看识别结果、输入食物重量、获得估算热量和饮食建议。
-          </p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        """
-        <div class="desktop-two-col">
-          <div class="info-block">
-            <h4>使用步骤</h4>
-            <ol>
-              <li>上传食物图片。</li>
-              <li>查看识别结果和 Top-3 预测。</li>
-              <li>输入本次食物重量。</li>
-              <li>查看估算热量。</li>
-              <li>选择用户目标并生成饮食建议。</li>
-            </ol>
-          </div>
-          <div class="info-block">
-            <h4>模型与数据边界</h4>
-            <ul>
-              <li>识别结果依赖当前已训练的 Food-101 子集模型。</li>
-              <li>模型缺失时显示“模型未加载”，不伪造真实识别。</li>
-              <li>系统不会仅凭图片自动精确估重。</li>
-              <li>热量通过“食物类别 + 重量 + 每 100g 热量表”估算。</li>
-            </ul>
-          </div>
-          <div class="info-block">
-            <h4>GPT-5 功能边界</h4>
-            <ul>
-              <li>GPT-5 不参与图像识别。</li>
-              <li>GPT-5 只根据食物名称、重量、估算热量和用户目标生成饮食建议。</li>
-              <li>API key 未配置、网络失败或超时时使用本地规则建议。</li>
-            </ul>
-          </div>
-          <div class="info-block warning-card">
-            <h4>免责声明</h4>
-            <ul>
-              <li>估算热量仅供饮食记录参考。</li>
-              <li>本系统不作为医学或营养诊断。</li>
-              <li>系统不提供治疗建议，特殊饮食需求应咨询专业人士。</li>
-            </ul>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    bottom_nav("系统说明")
