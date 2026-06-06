@@ -1,8 +1,17 @@
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
+
+
+def _function_source(source: str, function_name: str) -> str:
+    module = ast.parse(source)
+    for node in module.body:
+        if isinstance(node, ast.FunctionDef) and node.name == function_name:
+            return ast.get_source_segment(source, node) or ""
+    raise AssertionError(f"{function_name} not found")
 
 
 def test_app_routes_four_pages_and_about_falls_back_to_recognition():
@@ -77,6 +86,23 @@ def test_recognition_page_matches_open_design_key_states():
         assert removed_text not in components_source
     assert "Top-3 预测" in pages_source
     assert "模型未加载" in pages_source
+
+
+def test_model_advice_final_result_has_single_render_entrypoint():
+    pages_source = Path("ui/pages.py").read_text(encoding="utf-8")
+    stream_source = _function_source(pages_source, "render_model_advice_stream")
+    final_source = _function_source(pages_source, "render_final_calorie_and_advice")
+    recognition_source = _function_source(pages_source, "recognition_page")
+
+    assert "workflow_state_strip(" not in stream_source
+    assert "Model 饮食建议" not in stream_source
+    assert "<strong>本地规则建议" not in stream_source
+    assert "render_final_calorie_and_advice(calorie_result, advice_result)" in recognition_source
+    assert "st.rerun()" in recognition_source
+    assert pages_source.count("workflow_state_strip(") == 1
+    assert pages_source.count("Model 饮食建议") == 1
+    assert final_source.count("calorie_result_card(") == 1
+    assert final_source.count("Model 饮食建议") == 1
 
 
 def test_history_calorie_and_stats_pages_match_open_design_sections():

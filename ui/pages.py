@@ -163,7 +163,6 @@ def render_model_advice_stream(
 ) -> dict[str, str]:
     status_placeholder = st.empty()
     advice_placeholder = st.empty()
-    workflow_state_strip("Model 生成中")
     status_placeholder.markdown(
         (
             '<div class="result-card advice-card"><strong>Model 生成中</strong><br>'
@@ -186,7 +185,7 @@ def render_model_advice_stream(
             advice_placeholder.markdown(
                 f"""
                 <div class="result-card advice-card">
-                  <strong>Model 饮食建议</strong><br>
+                  <strong>Model 生成中</strong><br>
                   {escape("".join(chunks))}
                 </div>
                 """,
@@ -201,16 +200,7 @@ def render_model_advice_stream(
                 ),
                 unsafe_allow_html=True,
             )
-            advice_placeholder.markdown(
-                f"""
-                <div class="result-card advice-card">
-                  <strong>Model 饮食建议</strong><br>
-                  {escape(final_text)}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            workflow_state_strip("生成完毕")
+            advice_placeholder.empty()
             return {"status": "success", "advice": final_text}
         elif event_type == "error":
             reason = event.get("reason", "未知错误")
@@ -224,16 +214,7 @@ def render_model_advice_stream(
                 """,
                 unsafe_allow_html=True,
             )
-            advice_placeholder.markdown(
-                f"""
-                <div class="result-card warning-card">
-                  <strong>失败降级建议</strong><br>
-                  {escape(fallback)}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-            workflow_state_strip("失败：")
+            advice_placeholder.empty()
             return {"status": "error", "advice": fallback, "error_reason": reason}
 
     reason = "empty streaming response"
@@ -246,8 +227,53 @@ def render_model_advice_stream(
         f'<div class="result-card warning-card"><strong>失败：{reason}</strong></div>',
         unsafe_allow_html=True,
     )
-    workflow_state_strip("失败：")
+    advice_placeholder.empty()
     return {"status": "error", "advice": fallback, "error_reason": reason}
+
+
+def render_final_calorie_and_advice(calorie_result: dict | None, advice_result: dict | None) -> None:
+    if calorie_result:
+        calorie_result_card(str(calorie_result["total_calorie"]), str(calorie_result["calorie_per_100g"]))
+    if not advice_result:
+        return
+
+    status = str(advice_result.get("status", "error"))
+    if status == "success":
+        card_title = "Model 饮食建议"
+        card_class = "advice-card"
+        state_body = "Model 建议已完成。"
+        st.markdown(
+            f"""
+            <div class="result-card advice-card">
+              <strong>生成完毕</strong><br>
+              <span class="small-label">{escape(state_body)}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        reason = str(advice_result.get("error_reason") or "Model 未配置或调用失败")
+        card_title = "本地规则建议"
+        card_class = "warning-card"
+        st.markdown(
+            f"""
+            <div class="result-card warning-card">
+              <strong>失败：{escape(reason)}</strong><br>
+              <span class="small-label">已展示本地规则建议。</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown(
+        f"""
+        <div class="result-card {card_class}">
+          <strong>{escape(card_title)}</strong><br>
+          {escape(str(advice_result.get("advice", "")))}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def recognition_page(db) -> None:
@@ -297,8 +323,6 @@ def recognition_page(db) -> None:
                 '<div class="preview-meta"><span>已上传预览</span><span>仅用于本地识别</span></div>',
                 unsafe_allow_html=True,
             )
-        else:
-            workflow_state_strip("未上传")
 
     with right:
         st.markdown(
@@ -330,8 +354,20 @@ def recognition_page(db) -> None:
                 st.session_state.advice_result = None
 
         prediction = st.session_state.prediction
+        advice_result = st.session_state.advice_result
+        if image is None:
+            workflow_state = "未上传"
+        elif not prediction:
+            workflow_state = "已上传预览"
+        elif advice_result and advice_result.get("status") == "success":
+            workflow_state = "生成完毕"
+        elif advice_result:
+            workflow_state = "失败："
+        else:
+            workflow_state = "识别完成"
+        workflow_state_strip(workflow_state)
+
         if prediction:
-            workflow_state_strip("识别完成")
             render_prediction(prediction)
 
         foods = {food["class_name"]: food for food in db.list_foods()}
@@ -384,27 +420,11 @@ def recognition_page(db) -> None:
             )
             st.session_state.calorie_result = calorie_result
             st.session_state.advice_result = advice_result
+            st.rerun()
 
         calorie_result = st.session_state.calorie_result
         advice_result = st.session_state.advice_result
-        if calorie_result:
-            calorie_result_card(str(calorie_result["total_calorie"]), str(calorie_result["calorie_per_100g"]))
-        if advice_result:
-            status = (
-                "Model 饮食建议"
-                if advice_result["status"] == "success"
-                else f"失败：{advice_result.get('error_reason', '未知错误')}"
-            )
-            workflow_state_strip("生成完毕" if advice_result["status"] == "success" else "失败：")
-            st.markdown(
-                f"""
-                <div class="result-card advice-card">
-                  <strong>{escape(status)}</strong><br>
-                  {escape(advice_result["advice"])}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+        render_final_calorie_and_advice(calorie_result, advice_result)
     bottom_nav("食物识别")
 
 
