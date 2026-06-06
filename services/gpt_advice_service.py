@@ -4,6 +4,7 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
 from dotenv import load_dotenv
 from openai import OpenAI
 
@@ -70,12 +71,45 @@ def build_openai_client(api_key: str, base_url: str | None = None) -> OpenAI:
     return OpenAI(api_key=api_key, base_url=base_url or None, timeout=20.0)
 
 
+def _api_base_url(base_url: str | None) -> str:
+    base = (base_url or "https://api.openai.com/v1").rstrip("/")
+    if base.endswith("/chat/completions"):
+        return base[: -len("/chat/completions")]
+    if base.endswith("/responses"):
+        return base[: -len("/responses")]
+    return base
+
+
+def _post_json(api_key: str, base_url: str | None, endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
+    url = f"{_api_base_url(base_url)}/{endpoint.lstrip('/')}"
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    last_error: Exception | None = None
+    with httpx.Client(timeout=45.0) as http_client:
+        for _ in range(2):
+            try:
+                response = http_client.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPStatusError as exc:
+                last_error = exc
+                if exc.response.status_code < 500:
+                    raise
+            except (httpx.TimeoutException, httpx.TransportError) as exc:
+                last_error = exc
+    if last_error:
+        raise last_error
+    raise RuntimeError("OpenAI HTTP request failed")
+
+
 def build_prompt(food_name: str, weight_g: float, total_calorie: float, user_goal: str) -> str:
     return (
-        "请基于以下饮食记录生成中文饮食建议，100字以内。"
-        "不要给医学诊断或治疗建议，必须说明热量为估算值。"
-        f"\n食物：{food_name}"
-        f"\n重量：{weight_g}g"
+        "请基于以下已经明确给出的饮食记录生成中文饮食建议，100字以内。"
+        "不要说食物或目标未明确，不要给医学诊断或治疗建议，必须说明热量为估算值。"
+        f"\n食物名称：{food_name}"
+        f"\n本次重量：{weight_g}g"
         f"\n估算热量：{total_calorie} kcal"
         f"\n用户目标：{user_goal}"
     )
@@ -101,6 +135,27 @@ def local_rule_advice(food_name: str, weight_g: float, total_calorie: float, use
 
 
 def _extract_output_text(response: Any) -> str:
+    if isinstance(response, dict):
+        output_text = response.get("output_text")
+        if output_text:
+            return str(output_text).strip()
+        choices = response.get("choices") or []
+        if choices:
+            message = choices[0].get("message") or {}
+            content = message.get("content")
+            if content:
+                if isinstance(content, list):
+                    return "\n".join(str(item.get("text", item)) for item in content).strip()
+                return str(content).strip()
+        output = response.get("output") or []
+        texts: list[str] = []
+        for item in output:
+            for content in item.get("content", []) or []:
+                text = content.get("text")
+                if text:
+                    texts.append(str(text))
+        return "\n".join(texts).strip()
+
     output_text = getattr(response, "output_text", None)
     if output_text:
         return str(output_text).strip()
@@ -112,6 +167,40 @@ def _extract_output_text(response: Any) -> str:
             if text:
                 texts.append(str(text))
     return "\n".join(texts).strip()
+
+
+def _generate_http_advice(settings: OpenAISettings, prompt: str) -> str:
+    if not settings.api_key:
+        raise ValueError("OpenAI API key is required")
+
+    instructions = (
+        "你是饮食记录应用中的建议助手。输出中文，100字以内。"
+        "只能给一般饮食记录建议，不做医学或营养诊断。"
+    )
+    responses_payload = {
+        "model": settings.model,
+        "instructions": instructions,
+        "input": prompt,
+        "max_output_tokens": 180,
+    }
+    chat_payload = {
+        "model": settings.model,
+        "messages": [
+            {"role": "system", "content": instructions},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": 180,
+    }
+
+    errors: list[Exception] = []
+    for endpoint, payload in (("chat/completions", chat_payload), ("responses", responses_payload)):
+        try:
+            advice = _extract_output_text(_post_json(str(settings.api_key), settings.base_url, endpoint, payload))
+            if advice:
+                return advice
+        except Exception as exc:
+            errors.append(exc)
+    raise RuntimeError(f"OpenAI HTTP request failed: {errors[-1] if errors else 'empty response'}")
 
 
 def generate_gpt_advice(
@@ -131,15 +220,18 @@ def generate_gpt_advice(
         }
 
     try:
+        prompt = build_prompt(food_name, weight_g, total_calorie, user_goal)
         if client is None:
-            client = build_openai_client(str(resolved_settings.api_key), resolved_settings.base_url)
+            advice = _generate_http_advice(resolved_settings, prompt)
+            return {"status": "success", "advice": advice}
+
         response = client.responses.create(
             model=resolved_settings.model,
             instructions=(
                 "你是饮食记录应用中的建议助手。输出中文，100字以内。"
                 "只能给一般饮食记录建议，不做医学或营养诊断。"
             ),
-            input=build_prompt(food_name, weight_g, total_calorie, user_goal),
+            input=prompt,
             max_output_tokens=180,
         )
         advice = _extract_output_text(response)

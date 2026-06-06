@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from services.gpt_advice_service import (
     OpenAISettings,
+    _api_base_url,
     build_openai_client,
     generate_gpt_advice,
     mask_api_key,
@@ -54,37 +55,54 @@ def test_build_openai_client_uses_custom_base_url(monkeypatch):
 
 
 def test_generate_gpt_advice_reads_custom_base_url_and_model(monkeypatch):
-    calls = {}
+    calls = []
 
-    class SuccessfulResponses:
-        @staticmethod
-        def create(**kwargs):
-            calls["request"] = kwargs
-
-            class Response:
-                output_text = "估算热量约399 kcal，建议控制份量并搭配蔬菜。"
-
-            return Response()
-
-    class SuccessfulClient:
-        responses = SuccessfulResponses()
-
-    def fake_build_client(api_key, base_url):
-        calls["api_key"] = api_key
-        calls["base_url"] = base_url
-        return SuccessfulClient()
+    def fake_post_json(api_key, base_url, endpoint, payload):
+        calls.append(
+            {
+                "api_key": api_key,
+                "base_url": base_url,
+                "endpoint": endpoint,
+                "payload": payload,
+            }
+        )
+        return {"output_text": "估算热量约399 kcal，建议控制份量并搭配蔬菜。"}
 
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setenv("OPENAI_BASE_URL", "https://api.example.test/v1")
     monkeypatch.setenv("OPENAI_MODEL", "custom-gpt")
-    monkeypatch.setattr("services.gpt_advice_service.build_openai_client", fake_build_client)
+    monkeypatch.setattr("services.gpt_advice_service._post_json", fake_post_json)
 
     result = generate_gpt_advice("披萨", 150, 399, "减脂")
 
     assert result["status"] == "success"
-    assert calls["api_key"] == "test-key"
-    assert calls["base_url"] == "https://api.example.test/v1"
-    assert calls["request"]["model"] == "custom-gpt"
+    assert calls[0]["api_key"] == "test-key"
+    assert calls[0]["base_url"] == "https://api.example.test/v1"
+    assert calls[0]["endpoint"] == "chat/completions"
+    assert calls[0]["payload"]["model"] == "custom-gpt"
+
+
+def test_generate_gpt_advice_falls_back_from_chat_to_responses(monkeypatch):
+    calls = []
+
+    def fake_post_json(api_key, base_url, endpoint, payload):
+        calls.append((api_key, base_url, endpoint, payload))
+        if endpoint == "chat/completions":
+            raise RuntimeError("chat blocked")
+        return {"output": [{"content": [{"text": "估算热量为参考值，建议搭配蔬菜。"}]}]}
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.example.test/v1")
+    monkeypatch.setenv("OPENAI_MODEL", "custom-gpt")
+    monkeypatch.setattr("services.gpt_advice_service._post_json", fake_post_json)
+
+    result = generate_gpt_advice("披萨", 150, 399, "减脂")
+
+    assert result["status"] == "success"
+    assert [call[2] for call in calls] == ["chat/completions", "responses"]
+    assert calls[0][3]["model"] == "custom-gpt"
+    assert calls[0][3]["messages"][1]["content"]
+    assert calls[1][3]["input"]
 
 
 def test_openai_settings_prefers_session_override_over_env(monkeypatch):
@@ -124,27 +142,13 @@ def test_openai_settings_reads_env_and_masks_key(monkeypatch):
 
 def test_generate_gpt_advice_uses_explicit_settings(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "env-key")
-    calls = {}
+    calls = []
 
-    class SuccessfulResponses:
-        @staticmethod
-        def create(**kwargs):
-            calls["request"] = kwargs
+    def fake_post_json(api_key, base_url, endpoint, payload):
+        calls.append((api_key, base_url, endpoint, payload))
+        return {"output_text": "估算热量约399 kcal，建议搭配蔬菜。"}
 
-            class Response:
-                output_text = "估算热量约399 kcal，建议搭配蔬菜。"
-
-            return Response()
-
-    class SuccessfulClient:
-        responses = SuccessfulResponses()
-
-    def fake_build_client(api_key, base_url):
-        calls["api_key"] = api_key
-        calls["base_url"] = base_url
-        return SuccessfulClient()
-
-    monkeypatch.setattr("services.gpt_advice_service.build_openai_client", fake_build_client)
+    monkeypatch.setattr("services.gpt_advice_service._post_json", fake_post_json)
 
     result = generate_gpt_advice(
         "披萨",
@@ -160,6 +164,51 @@ def test_generate_gpt_advice_uses_explicit_settings(monkeypatch):
     )
 
     assert result["status"] == "success"
-    assert calls["api_key"] == "session-key"
-    assert calls["base_url"] == "https://session.example.test/v1"
+    assert calls[0][0] == "session-key"
+    assert calls[0][1] == "https://session.example.test/v1"
+    assert calls[0][3]["model"] == "session-model"
+
+
+def test_generate_gpt_advice_uses_injected_client_and_explicit_settings(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "env-key")
+    calls = {}
+
+    class SuccessfulResponses:
+        @staticmethod
+        def create(**kwargs):
+            calls["request"] = kwargs
+
+            class Response:
+                output_text = "估算热量约399 kcal，建议搭配蔬菜。"
+
+            return Response()
+
+    class SuccessfulClient:
+        responses = SuccessfulResponses()
+
+    result = generate_gpt_advice(
+        "披萨",
+        150,
+        399,
+        "减脂",
+        client=SuccessfulClient(),
+        settings=OpenAISettings(
+            api_key="session-key",
+            base_url="https://session.example.test/v1",
+            model="session-model",
+            source="session",
+        ),
+    )
+
+    assert result["status"] == "success"
     assert calls["request"]["model"] == "session-model"
+    assert "披萨" in calls["request"]["input"]
+
+
+def test_api_base_url_accepts_root_or_endpoint_urls():
+    assert _api_base_url("https://api.example.test/v1") == "https://api.example.test/v1"
+    assert _api_base_url("https://api.example.test/v1/responses") == "https://api.example.test/v1"
+    assert (
+        _api_base_url("https://api.example.test/v1/chat/completions")
+        == "https://api.example.test/v1"
+    )
