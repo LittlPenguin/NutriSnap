@@ -25,17 +25,21 @@ def test_app_routes_five_pages_and_about_page_has_no_tech_stack_card():
     assert "技术栈" not in about_source
 
 
-def test_dual_navigation_matches_open_design_labels_and_links():
+def test_dual_navigation_matches_open_design_labels_and_internal_switching():
     components_source = Path("ui/components.py").read_text(encoding="utf-8")
     styles_source = Path("ui/styles.py").read_text(encoding="utf-8")
+    app_source = Path("app.py").read_text(encoding="utf-8")
 
     for label in ["食物识别", "历史记录", "热量表", "统计分析", "系统说明"]:
         assert label in components_source
     for short_label in ["识别", "历史", "热量表", "统计", "说明"]:
         assert short_label in components_source
-    for text in ['href="?page=', "desktop-nav", "bottom-nav", "nav-item", "active"]:
+    assert 'href="?page=' not in components_source
+    assert 'href="?page=' not in app_source
+    for text in ["desktop-nav", "bottom-nav", "nav-item", "active", "st.query_params", "st.rerun"]:
         assert text in components_source
-    for selector in [".desktop-nav a", ".nav-item", ".bottom-nav"]:
+    assert "st.pills" in components_source or "st.segmented_control" in components_source
+    for selector in [".desktop-nav", ".nav-item", ".bottom-nav"]:
         assert selector in styles_source
 
 

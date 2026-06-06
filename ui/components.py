@@ -21,11 +21,31 @@ def page_key(label: str) -> str:
     return PAGE_ITEMS[0][1]
 
 
+def _active_key(active_page: str | None) -> str:
+    if not active_page:
+        return PAGE_ITEMS[0][1]
+    keys = {key for _, key, _, _ in PAGE_ITEMS}
+    if active_page in keys:
+        return active_page
+    return page_key(active_page)
+
+
+def _label_for_key(page: str, mobile: bool = False) -> str:
+    for label, key, icon, short in PAGE_ITEMS:
+        if key == page:
+            return f"{icon} {short}" if mobile else label
+    return page
+
+
+def _switch_page(selected_page: str | None, active_page: str | None) -> None:
+    active_key = _active_key(active_page)
+    if selected_page and selected_page != active_key:
+        st.query_params["page"] = selected_page
+        st.rerun()
+
+
 def brand_header(subtitle: str, active_page: str | None = None) -> None:
-    nav = "".join(
-        f'<a class="{"active" if label == active_page else ""}" href="?page={key}">{escape(label)}</a>'
-        for label, key, _, _ in PAGE_ITEMS
-    )
+    active_key = _active_key(active_page)
     st.markdown(
         f"""
         <header class="desktop-top">
@@ -36,11 +56,22 @@ def brand_header(subtitle: str, active_page: str | None = None) -> None:
               <p class="muted" style="font-size:12px;margin:2px 0 0">{escape(subtitle)}</p>
             </div>
           </div>
-          <nav class="desktop-nav">{nav}</nav>
+          <div class="desktop-nav active">{escape(_label_for_key(active_key))}</div>
         </header>
         """,
         unsafe_allow_html=True,
     )
+    with st.container(key=f"desktop_nav_container_{active_key}"):
+        selected_page = st.pills(
+            "页面导航",
+            [key for _, key, _, _ in PAGE_ITEMS],
+            default=active_key,
+            format_func=lambda page: _label_for_key(str(page)),
+            key=f"desktop_nav_{active_key}",
+            label_visibility="collapsed",
+            width="content",
+        )
+    _switch_page(str(selected_page) if selected_page else None, active_key)
 
 
 def page_title(title: str, description: str, tag: str | None = None, tag_kind: str = "primary") -> None:
@@ -60,16 +91,19 @@ def page_title(title: str, description: str, tag: str | None = None, tag_kind: s
 
 
 def bottom_nav(active_page: str) -> None:
-    items = "".join(
-        f"""
-        <a class="nav-item {'active' if label == active_page else ''}" href="?page={key}">
-          <span class="nav-icon">{escape(icon)}</span>
-          <span>{escape(short)}</span>
-        </a>
-        """
-        for label, key, icon, short in PAGE_ITEMS
-    )
-    st.markdown(f'<nav class="bottom-nav">{items}</nav>', unsafe_allow_html=True)
+    active_key = _active_key(active_page)
+    with st.container(key=f"bottom_nav_container_{active_key}"):
+        st.markdown('<span class="bottom-nav nav-item active" aria-hidden="true"></span>', unsafe_allow_html=True)
+        selected_page = st.pills(
+            "移动端底部导航",
+            [key for _, key, _, _ in PAGE_ITEMS],
+            default=active_key,
+            format_func=lambda page: _label_for_key(str(page), mobile=True),
+            key=f"bottom_nav_{active_key}",
+            label_visibility="collapsed",
+            width="stretch",
+        )
+    _switch_page(str(selected_page) if selected_page else None, active_key)
 
 
 def card(content: str, class_name: str = "") -> None:

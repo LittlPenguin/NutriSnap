@@ -69,3 +69,12 @@
 - 核心服务必须能在没有模型权重和没有 API Key 的情况下可测试、可演示。
 - 推送前至少运行 `pytest` 和 `ruff check .`。
 - 启动 Streamlit 进行验证后，应停止本地服务。
+
+## 当前修正规则
+
+- OpenAI 配置必须从 `.env` 读取，并支持 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL`。
+- 不得在源码、文档、测试输出或提交信息中暴露真实 API Key。
+- Streamlit 页面切换必须使用站内状态切换，禁止把主导航实现为普通 `<a href="?page=...">` 链接跳转。
+- 全局样式必须为 Streamlit 默认头部预留安全间距，避免遮挡 NutriSnap 顶部品牌栏。
+- Food-101 数据准备脚本必须支持下载、整理和验收报告；`dataset/` 仍然不提交。
+- 未训练并放入 `models/food_resnet18.pth` 前，不得宣称已完成真实 ResNet18 推理验收。

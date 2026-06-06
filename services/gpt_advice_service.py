@@ -4,6 +4,11 @@ import os
 from typing import Any
 
 from dotenv import load_dotenv
+from openai import OpenAI
+
+
+def build_openai_client(api_key: str, base_url: str | None = None) -> OpenAI:
+    return OpenAI(api_key=api_key, base_url=base_url or None, timeout=20.0)
 
 
 def build_prompt(food_name: str, weight_g: float, total_calorie: float, user_goal: str) -> str:
@@ -59,6 +64,7 @@ def generate_gpt_advice(
 ) -> dict[str, str]:
     load_dotenv()
     api_key = os.getenv("OPENAI_API_KEY")
+    base_url = os.getenv("OPENAI_BASE_URL") or None
     model = os.getenv("OPENAI_MODEL", "gpt-5")
 
     if client is None and not api_key:
@@ -69,9 +75,7 @@ def generate_gpt_advice(
 
     try:
         if client is None:
-            from openai import OpenAI
-
-            client = OpenAI(api_key=api_key, timeout=20.0)
+            client = build_openai_client(api_key, base_url)
         response = client.responses.create(
             model=model,
             instructions=(

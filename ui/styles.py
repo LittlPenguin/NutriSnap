@@ -35,8 +35,16 @@ def inject_css() -> None:
             background: var(--nutri-bg);
             color: var(--nutri-text);
         }}
+        [data-testid="stHeader"] {{
+            background: rgba(247, 250, 246, 0.92);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(229, 231, 235, 0.72);
+        }}
+        [data-testid="stToolbar"] {{
+            right: 0.75rem;
+        }}
         .block-container {{
-            padding-top: 1.25rem;
+            padding-top: 3.75rem;
             padding-bottom: 4.5rem;
             max-width: 1180px;
         }}
@@ -94,7 +102,7 @@ def inject_css() -> None:
             gap: 8px;
             flex-wrap: wrap;
         }}
-        .desktop-nav a,
+        .desktop-nav,
         .chip,
         .tag {{
             border: 1px solid var(--nutri-border);
@@ -107,7 +115,41 @@ def inject_css() -> None:
             white-space: nowrap;
             text-decoration: none;
         }}
-        .desktop-nav a.active,
+        .streamlit-nav,
+        div[data-testid="stElementContainer"][class*="st-key-desktop_nav_"],
+        div[data-testid="stVerticalBlock"][class*="st-key-desktop_nav_container_"] {{
+            margin: 10px 0 12px;
+            border: none;
+            padding: 0;
+            background: transparent;
+        }}
+        .streamlit-nav [data-testid="stPills"],
+        .streamlit-bottom-nav [data-testid="stPills"],
+        div[data-testid="stElementContainer"][class*="st-key-desktop_nav_"] [data-testid="stPills"],
+        div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"] [data-testid="stPills"] {{
+            width: 100%;
+        }}
+        .streamlit-nav [data-testid="stPills"] button,
+        .streamlit-bottom-nav [data-testid="stPills"] button,
+        div[data-testid="stElementContainer"][class*="st-key-desktop_nav_"] [data-testid="stPills"] button,
+        div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"] [data-testid="stPills"] button {{
+            border: 1px solid var(--nutri-border);
+            border-radius: 999px;
+            background: #fff;
+            color: var(--nutri-muted);
+            font-weight: 700;
+        }}
+        .streamlit-nav [data-testid="stPills"] button[aria-pressed="true"],
+        .streamlit-bottom-nav [data-testid="stPills"] button[aria-pressed="true"],
+        div[data-testid="stElementContainer"][class*="st-key-desktop_nav_"]
+        [data-testid="stPills"] button[aria-pressed="true"],
+        div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"]
+        [data-testid="stPills"] button[aria-pressed="true"] {{
+            border-color: rgba(92, 168, 120, 0.25);
+            background: var(--nutri-good);
+            color: var(--nutri-primary);
+        }}
+        .desktop-nav.active,
         .chip.active,
         .tag.primary {{
             border-color: rgba(92, 168, 120, 0.25);
@@ -115,7 +157,6 @@ def inject_css() -> None:
             color: var(--nutri-primary);
             font-weight: 700;
         }}
-        .desktop-nav a:hover,
         .nav-item:hover {{
             color: var(--nutri-primary);
             text-decoration: none;
@@ -399,6 +440,13 @@ def inject_css() -> None:
             box-shadow: 0 12px 30px rgba(31, 41, 51, 0.12);
             backdrop-filter: blur(12px);
         }}
+        .streamlit-bottom-nav {{
+            margin-top: 18px;
+        }}
+        div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"],
+        div[data-testid="stVerticalBlock"][class*="st-key-bottom_nav_container_"] {{
+            display: none !important;
+        }}
         .nav-item {{
             min-width: 54px;
             text-align: center;
@@ -456,6 +504,7 @@ def inject_css() -> None:
         }}
         @media (max-width: 760px) {{
             .block-container {{
+                padding-top: 3.25rem;
                 padding-left: 1rem;
                 padding-right: 1rem;
                 padding-bottom: 5rem;
@@ -463,8 +512,37 @@ def inject_css() -> None:
             .desktop-nav {{
                 display: none;
             }}
+            div[data-testid="stElementContainer"][class*="st-key-desktop_nav_"],
+            div[data-testid="stVerticalBlock"][class*="st-key-desktop_nav_container_"] {{
+                display: none !important;
+            }}
             .bottom-nav {{
                 display: flex;
+            }}
+            div[data-testid="stVerticalBlock"][class*="st-key-bottom_nav_container_"] {{
+                display: block !important;
+                position: fixed !important;
+                left: 1rem !important;
+                right: 1rem !important;
+                bottom: 10px !important;
+                z-index: 1000 !important;
+                padding: 8px !important;
+                border: 1px solid var(--nutri-border);
+                border-radius: 12px;
+                background: rgba(255, 255, 255, 0.96);
+                box-shadow: 0 12px 30px rgba(31, 41, 51, 0.12);
+                backdrop-filter: blur(12px);
+            }}
+            div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"] {{
+                display: block !important;
+            }}
+            div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"] [data-testid="stPills"] {{
+                overflow-x: auto;
+            }}
+            div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"] [data-testid="stPills"] button {{
+                min-width: 58px;
+                padding: 7px 8px;
+                font-size: 0.78rem;
             }}
             .desktop-work,
             .desktop-two-col,
