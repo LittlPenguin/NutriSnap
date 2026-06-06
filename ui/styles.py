@@ -440,9 +440,6 @@ def inject_css() -> None:
             box-shadow: 0 12px 30px rgba(31, 41, 51, 0.12);
             backdrop-filter: blur(12px);
         }}
-        .streamlit-bottom-nav {{
-            margin-top: 18px;
-        }}
         div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"],
         div[data-testid="stVerticalBlock"][class*="st-key-bottom_nav_container_"] {{
             display: none !important;
@@ -522,27 +519,47 @@ def inject_css() -> None:
             div[data-testid="stVerticalBlock"][class*="st-key-bottom_nav_container_"] {{
                 display: block !important;
                 position: fixed !important;
-                left: 1rem !important;
-                right: 1rem !important;
+                left: 12px !important;
+                right: auto !important;
+                width: calc(100vw - 24px) !important;
                 bottom: 10px !important;
                 z-index: 1000 !important;
-                padding: 8px !important;
+                padding: 7px !important;
+                box-sizing: border-box !important;
                 border: 1px solid var(--nutri-border);
                 border-radius: 12px;
                 background: rgba(255, 255, 255, 0.96);
                 box-shadow: 0 12px 30px rgba(31, 41, 51, 0.12);
                 backdrop-filter: blur(12px);
             }}
-            div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"] {{
+            div[data-testid="stVerticalBlock"][class*="st-key-bottom_nav_container_"]
+            div[data-testid="stHorizontalBlock"] {{
+                display: grid !important;
+                grid-template-columns: repeat(5, minmax(0, 1fr));
+                gap: 4px;
+                align-items: stretch;
+            }}
+            div[data-testid="stVerticalBlock"][class*="st-key-bottom_nav_container_"]
+            div[data-testid="column"] {{
+                min-width: 0 !important;
+                width: 100% !important;
+                padding: 0 !important;
+            }}
+            div[data-testid="stElementContainer"][class*="st-key-mobile_nav_button_"] {{
                 display: block !important;
+                min-width: 0 !important;
             }}
-            div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"] [data-testid="stPills"] {{
-                overflow-x: auto;
-            }}
-            div[data-testid="stElementContainer"][class*="st-key-bottom_nav_"] [data-testid="stPills"] button {{
-                min-width: 58px;
-                padding: 7px 8px;
-                font-size: 0.78rem;
+            div[data-testid="stElementContainer"][class*="st-key-mobile_nav_button_"] button {{
+                min-width: 0 !important;
+                width: 100% !important;
+                height: 42px !important;
+                padding: 5px 2px !important;
+                border-radius: 8px !important;
+                font-size: 0.72rem !important;
+                line-height: 1.05 !important;
+                white-space: normal !important;
+                overflow: hidden !important;
+                text-overflow: clip !important;
             }}
             .desktop-work,
             .desktop-two-col,

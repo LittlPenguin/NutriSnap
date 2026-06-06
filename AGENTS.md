@@ -53,13 +53,14 @@
 ## 阻塞记录
 
 - 遇到用户侧事项时，不应阻塞其他可开发阶段，应记录到 `doc/开发阻塞记录.md` 后继续。
-- 用户侧事项包括但不限于：真实 `OPENAI_API_KEY`、Food-101 原始数据、训练后的 `models/food_resnet18.pth`、真实移动端设备验收、课程视频录制素材。
+- 用户侧事项包括但不限于：训练后的 `models/food_resnet18.pth`、课程视频录制素材。
 - 记录阻塞项时应写明影响范围、当前降级方案和后续处理动作。
 
 ## 密钥与数据
 
 - 不得提交真实 API Key。
-- 使用 `.env` 保存 `OPENAI_API_KEY` 和 `OPENAI_MODEL`。
+- 使用 `.env` 保存 `OPENAI_API_KEY`、`OPENAI_BASE_URL` 和 `OPENAI_MODEL`。
+- 页面内 OpenAI API Key 只能保存到当前 Streamlit 会话，不得写入数据库、`.env`、日志或 Git。
 - `.env`、SQLite 数据库、模型权重、数据集、训练输出不提交。
 - `.env.example` 可以提交，只包含变量名和示例配置。
 
@@ -73,8 +74,12 @@
 ## 当前修正规则
 
 - OpenAI 配置必须从 `.env` 读取，并支持 `OPENAI_API_KEY`、`OPENAI_BASE_URL`、`OPENAI_MODEL`。
+- 页面内 OpenAI 配置优先级必须高于 `.env`，且只在当前会话生效。
 - 不得在源码、文档、测试输出或提交信息中暴露真实 API Key。
 - Streamlit 页面切换必须使用站内状态切换，禁止把主导航实现为普通 `<a href="?page=...">` 链接跳转。
+- 移动端底部导航必须是固定 5 列站内按钮，避免窄屏下横向滚动、换行或遮挡内容。
 - 全局样式必须为 Streamlit 默认头部预留安全间距，避免遮挡 NutriSnap 顶部品牌栏。
 - Food-101 数据准备脚本必须支持下载、整理和验收报告；`dataset/` 仍然不提交。
+- Food-101 子集真实图片已在本地验收通过；不得把 `dataset/` 提交到 Git。
+- 当前移动端验收口径为浏览器模拟移动端分辨率，不要求真机截图。
 - 未训练并放入 `models/food_resnet18.pth` 前，不得宣称已完成真实 ResNet18 推理验收。

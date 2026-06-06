@@ -93,17 +93,23 @@ def page_title(title: str, description: str, tag: str | None = None, tag_kind: s
 def bottom_nav(active_page: str) -> None:
     active_key = _active_key(active_page)
     with st.container(key=f"bottom_nav_container_{active_key}"):
-        st.markdown('<span class="bottom-nav nav-item active" aria-hidden="true"></span>', unsafe_allow_html=True)
-        selected_page = st.pills(
-            "移动端底部导航",
-            [key for _, key, _, _ in PAGE_ITEMS],
-            default=active_key,
-            format_func=lambda page: _label_for_key(str(page), mobile=True),
-            key=f"bottom_nav_{active_key}",
-            label_visibility="collapsed",
-            width="stretch",
+        st.markdown(
+            '<span class="bottom-nav mobile-nav-grid nav-item active" aria-hidden="true">移动端底部导航</span>',
+            unsafe_allow_html=True,
         )
-    _switch_page(str(selected_page) if selected_page else None, active_key)
+        columns = st.columns(5)
+        selected_page = None
+        for column, (_, key, _, _) in zip(columns, PAGE_ITEMS, strict=True):
+            with column:
+                button_key = f"mobile_nav_button_{'active' if key == active_key else 'idle'}_{active_key}_{key}"
+                if st.button(
+                    _label_for_key(key, mobile=True),
+                    key=button_key,
+                    use_container_width=True,
+                    type="primary" if key == active_key else "secondary",
+                ):
+                    selected_page = key
+    _switch_page(selected_page, active_key)
 
 
 def card(content: str, class_name: str = "") -> None:

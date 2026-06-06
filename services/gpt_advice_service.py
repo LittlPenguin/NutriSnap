@@ -1,10 +1,67 @@
 from __future__ import annotations
 
 import os
+from dataclasses import dataclass
 from typing import Any
 
 from dotenv import load_dotenv
 from openai import OpenAI
+
+
+@dataclass(frozen=True)
+class OpenAISettings:
+    api_key: str | None
+    base_url: str | None
+    model: str
+    source: str
+
+    @property
+    def has_api_key(self) -> bool:
+        return bool(self.api_key)
+
+
+def _clean(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def resolve_openai_settings(overrides: dict[str, Any] | OpenAISettings | None = None) -> OpenAISettings:
+    load_dotenv()
+    if isinstance(overrides, OpenAISettings):
+        return overrides
+
+    overrides = overrides or {}
+    session_api_key = _clean(overrides.get("api_key"))
+    session_base_url = _clean(overrides.get("base_url"))
+    session_model = _clean(overrides.get("model"))
+
+    env_api_key = _clean(os.getenv("OPENAI_API_KEY"))
+    env_base_url = _clean(os.getenv("OPENAI_BASE_URL"))
+    env_model = _clean(os.getenv("OPENAI_MODEL"))
+
+    api_key = session_api_key or env_api_key
+    base_url = session_base_url or env_base_url
+    model = session_model or env_model or "gpt-5"
+
+    if session_api_key or session_base_url or session_model:
+        source = "session"
+    elif env_api_key or env_base_url or env_model:
+        source = "env"
+    else:
+        source = "default"
+
+    return OpenAISettings(api_key=api_key, base_url=base_url, model=model, source=source)
+
+
+def mask_api_key(api_key: str | None) -> str:
+    key = _clean(api_key)
+    if not key:
+        return "未配置"
+    if len(key) <= 8:
+        return "****"
+    return f"{key[:3]}****{key[-4:]}"
 
 
 def build_openai_client(api_key: str, base_url: str | None = None) -> OpenAI:
@@ -61,13 +118,11 @@ def generate_gpt_advice(
     total_calorie: float,
     user_goal: str,
     client: Any | None = None,
+    settings: OpenAISettings | dict[str, Any] | None = None,
 ) -> dict[str, str]:
-    load_dotenv()
-    api_key = os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("OPENAI_BASE_URL") or None
-    model = os.getenv("OPENAI_MODEL", "gpt-5")
+    resolved_settings = resolve_openai_settings(settings)
 
-    if client is None and not api_key:
+    if client is None and not resolved_settings.api_key:
         return {
             "status": "fallback",
             "advice": local_rule_advice(food_name, weight_g, total_calorie, user_goal),
@@ -75,9 +130,9 @@ def generate_gpt_advice(
 
     try:
         if client is None:
-            client = build_openai_client(api_key, base_url)
+            client = build_openai_client(str(resolved_settings.api_key), resolved_settings.base_url)
         response = client.responses.create(
-            model=model,
+            model=resolved_settings.model,
             instructions=(
                 "你是饮食记录应用中的建议助手。输出中文，100字以内。"
                 "只能给一般饮食记录建议，不做医学或营养诊断。"

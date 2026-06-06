@@ -8,7 +8,7 @@ import streamlit as st
 from PIL import Image, UnidentifiedImageError
 
 from services.calorie_service import CalorieService
-from services.gpt_advice_service import generate_gpt_advice
+from services.gpt_advice_service import generate_gpt_advice, mask_api_key, resolve_openai_settings
 from services.predictor import predict_image
 from services.schemas import USER_GOALS
 from services.stats_service import get_daily_stats, get_food_ranking
@@ -28,6 +28,8 @@ from ui.components import (
     upload_state_card,
     workflow_state_strip,
 )
+
+OPENAI_SESSION_CONFIG_KEY = "openai_session_config"
 
 
 def read_uploaded_image(uploaded_file) -> Image.Image | None:
@@ -50,6 +52,76 @@ def _format_time(value: str | None) -> str:
     if not value:
         return "-"
     return value.replace("T", " ")
+
+
+def get_openai_session_config() -> dict[str, str]:
+    value = st.session_state.get(OPENAI_SESSION_CONFIG_KEY)
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def render_openai_config_panel() -> dict[str, str]:
+    session_config = get_openai_session_config()
+    settings = resolve_openai_settings(session_config)
+    source_text = {
+        "session": "页面配置",
+        "env": ".env 配置",
+        "default": "默认配置",
+    }.get(settings.source, settings.source)
+    if not settings.has_api_key:
+        source_status = "当前未配置 API Key，使用本地规则建议"
+    else:
+        source_status = f"当前使用：{source_text} · Key {mask_api_key(settings.api_key)}"
+
+    with st.expander("GPT 配置", expanded=False):
+        st.markdown(
+            f"""
+            <div class="result-card advice-card">
+              <strong>OpenAI 建议配置</strong><br>
+              <span class="small-label">{escape(source_status)}</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        base_url_input = st.text_input(
+            "OpenAI Base URL",
+            value=settings.base_url or "",
+            placeholder="例如：https://api.openai.com/v1",
+            key="openai_base_url_input",
+        )
+        api_key_input = st.text_input(
+            "OpenAI API Key",
+            value="",
+            placeholder="留空则继续使用 .env 中的 Key；输入后仅保存到本次会话",
+            type="password",
+            key="openai_api_key_input",
+        )
+        model_input = st.text_input(
+            "OpenAI Model",
+            value=settings.model or "gpt-5",
+            placeholder="例如：gpt-5",
+            key="openai_model_input",
+        )
+        save_col, clear_col = st.columns(2)
+        with save_col:
+            if st.button("保存到本次会话", key="save_openai_session_config"):
+                next_config = {
+                    "base_url": base_url_input.strip(),
+                    "model": model_input.strip() or "gpt-5",
+                }
+                if api_key_input.strip():
+                    next_config["api_key"] = api_key_input.strip()
+                elif session_config.get("api_key"):
+                    next_config["api_key"] = session_config["api_key"]
+                st.session_state[OPENAI_SESSION_CONFIG_KEY] = next_config
+                st.rerun()
+        with clear_col:
+            if st.button("清除页面配置，恢复 .env", key="clear_openai_session_config"):
+                st.session_state.pop(OPENAI_SESSION_CONFIG_KEY, None)
+                st.rerun()
+
+        st.caption("API Key 仅保存到当前 Streamlit 会话，不写入数据库、.env、日志或 Git。")
+
+    return get_openai_session_config()
 
 
 def render_prediction(prediction: dict) -> None:
@@ -146,6 +218,7 @@ def recognition_page(db) -> None:
             """,
             unsafe_allow_html=True,
         )
+        openai_config = render_openai_config_panel()
         if "prediction" not in st.session_state:
             st.session_state.prediction = None
         if "calorie_result" not in st.session_state:
@@ -194,6 +267,7 @@ def recognition_page(db) -> None:
                     calorie_result["weight_g"],
                     calorie_result["total_calorie"],
                     user_goal,
+                    settings=openai_config,
                 )
             history_id = db.save_history(
                 {

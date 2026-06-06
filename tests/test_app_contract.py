@@ -39,6 +39,12 @@ def test_dual_navigation_matches_open_design_labels_and_internal_switching():
     for text in ["desktop-nav", "bottom-nav", "nav-item", "active", "st.query_params", "st.rerun"]:
         assert text in components_source
     assert "st.pills" in components_source or "st.segmented_control" in components_source
+    bottom_nav_source = components_source.split("def bottom_nav(active_page: str) -> None:", maxsplit=1)[1]
+    bottom_nav_source = bottom_nav_source.split("\ndef ", maxsplit=1)[0]
+    assert "st.pills" not in bottom_nav_source
+    assert "st.columns(5)" in bottom_nav_source
+    assert "mobile_nav_button" in styles_source
+    assert "grid-template-columns: repeat(5, minmax(0, 1fr))" in styles_source
     for selector in [".desktop-nav", ".nav-item", ".bottom-nav"]:
         assert selector in styles_source
 
@@ -71,6 +77,8 @@ def test_recognition_page_matches_open_design_key_states():
     components_source = Path("ui/components.py").read_text(encoding="utf-8")
 
     for text in ["今天也记一餐", "今日已记录", "上传食物图片", "已上传预览", "本次份量", "GPT 饮食建议"]:
+        assert text in pages_source
+    for text in ["GPT 配置", "保存到本次会话", "清除页面配置，恢复 .env", "当前使用："]:
         assert text in pages_source
     for text in ["未上传状态", "识别完成", "GPT 生成中", "GPT 建议完成", "本地规则建议"]:
         assert text in components_source
@@ -109,8 +117,10 @@ def test_final_open_design_contract_and_blockers_are_recorded():
         assert text in pages_source
     for text in ["progress-list", "history-row", "food-row", "chart-shell", "bottom-nav", "desktop-nav"]:
         assert text in components_source or text in pages_source
-    for blocker in ["OPENAI_API_KEY", "Food-101 子集真实图片", "models/food_resnet18.pth", "真机手机浏览器验收"]:
+    for blocker in ["OPENAI_API_KEY", "Food-101 子集真实图片", "models/food_resnet18.pth", "浏览器模拟移动端验收"]:
         assert blocker in blockers_source
+    for text in ["B-002 已解决", "is_valid: true", "总计 360 张", "B-004 不做真机校验"]:
+        assert text in blockers_source
     for rule in ["每完成一个阶段必须进行一次 Git 提交", "提交信息必须使用中文", "opendesign-nutrisnap/"]:
         assert rule in agents_source
 
