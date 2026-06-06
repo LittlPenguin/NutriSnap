@@ -48,6 +48,18 @@ def inject_css() -> None:
             padding-bottom: 4.5rem;
             max-width: 1180px;
         }}
+        .block-container,
+        .block-container * {{
+            box-sizing: border-box;
+        }}
+        .block-container,
+        div[data-testid="stHorizontalBlock"],
+        div[data-testid="column"],
+        div[data-testid="stVerticalBlock"],
+        div[data-testid="stElementContainer"] {{
+            min-width: 0;
+            max-width: 100%;
+        }}
         .nutri-brand-row,
         .desktop-top,
         .app-header,
@@ -60,6 +72,21 @@ def inject_css() -> None:
             align-items: center;
             justify-content: space-between;
             gap: 12px;
+            min-width: 0;
+        }}
+        .result-row,
+        .input-line,
+        .history-row,
+        .food-row,
+        .rank-row {{
+            flex-wrap: wrap;
+        }}
+        .result-row > *,
+        .input-line > *,
+        .history-row > *,
+        .food-row > *,
+        .rank-row > * {{
+            min-width: 0;
         }}
         .brand-lockup {{
             display: flex;
@@ -190,6 +217,11 @@ def inject_css() -> None:
         .info-block {{
             padding: 1rem;
             margin-bottom: 0.75rem;
+            max-width: 100%;
+            min-width: 0;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            overflow-x: hidden;
         }}
         .advice-card {{
             background: var(--nutri-good);
@@ -216,10 +248,19 @@ def inject_css() -> None:
         }}
         .progress-item {{
             display: grid;
-            grid-template-columns: 82px 1fr 48px;
+            grid-template-columns: minmax(0, 82px) minmax(0, 1fr) minmax(42px, 48px);
             align-items: center;
             gap: 10px;
             font-size: 0.9rem;
+            min-width: 0;
+        }}
+        .progress-item > * {{
+            min-width: 0;
+        }}
+        .progress-item span {{
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }}
         .bar {{
             height: 9px;
@@ -289,6 +330,8 @@ def inject_css() -> None:
         .food-row,
         .rank-row {{
             align-items: flex-start;
+            min-width: 0;
+            max-width: 100%;
         }}
         .history-row strong,
         .food-row strong,
@@ -310,10 +353,23 @@ def inject_css() -> None:
         .food-row small {{
             margin-top: 5px;
             max-width: 720px;
+            overflow-wrap: anywhere;
+        }}
+        .history-row > div,
+        .food-row > div,
+        .rank-row > div {{
+            flex: 1 1 0;
+            min-width: 0;
+        }}
+        .history-row .kcal-small,
+        .rank-row .kcal-small {{
+            flex: 0 0 auto;
+            white-space: nowrap;
         }}
         .food-kcal {{
             min-width: 132px;
             text-align: right;
+            flex: 0 0 auto;
         }}
         .food-kcal b,
         .rank-row b {{
@@ -398,12 +454,17 @@ def inject_css() -> None:
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 10px;
             margin: 10px 0 14px;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
         }}
         .state-item {{
             padding: 10px;
             border-radius: 8px;
             border: 1px solid var(--nutri-border);
             background: #fff;
+            min-width: 0;
+            overflow-wrap: anywhere;
         }}
         .state-item strong,
         .state-item span {{
@@ -470,16 +531,49 @@ def inject_css() -> None:
         }}
         .desktop-table {{
             display: grid;
+            grid-template-columns: minmax(0, 1fr);
             gap: 6px;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            overflow-x: hidden;
+            contain: inline-size;
+        }}
+        .desktop-table > * {{
+            min-width: 0;
+            max-width: 100%;
         }}
         .table-row {{
             display: grid;
-            grid-template-columns: 1fr 0.7fr 0.8fr 0.7fr 2fr;
+            grid-template-columns:
+                minmax(0, 1fr)
+                minmax(0, 0.56fr)
+                minmax(0, 0.72fr)
+                minmax(0, 0.68fr)
+                minmax(0, 2fr);
             align-items: center;
             gap: 10px;
             padding: 10px 12px;
             border-bottom: 1px solid var(--nutri-border);
             font-size: 0.9rem;
+            width: 100%;
+            box-sizing: border-box;
+            min-width: 0;
+            max-width: 100%;
+            overflow: hidden;
+        }}
+        .table-row > span {{
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .table-row > span:last-child {{
+            white-space: normal;
+            overflow-wrap: anywhere;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
         }}
         .table-head {{
             color: var(--nutri-muted);
@@ -571,6 +665,14 @@ def inject_css() -> None:
             }}
             .table-row {{
                 grid-template-columns: 1fr;
+            }}
+            .table-row > span,
+            .table-row > span:last-child {{
+                white-space: normal;
+                overflow: visible;
+                text-overflow: clip;
+                display: block;
+                -webkit-line-clamp: initial;
             }}
             .main-title {{
                 font-size: 1.75rem;

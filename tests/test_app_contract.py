@@ -71,6 +71,30 @@ def test_design_system_tokens_and_core_component_classes_exist():
         assert function_name in components_source
 
 
+def test_layout_css_prevents_card_and_history_table_overflow():
+    styles_source = Path("ui/styles.py").read_text(encoding="utf-8")
+
+    for selector in [
+        'div[data-testid="stHorizontalBlock"]',
+        'div[data-testid="column"]',
+        'div[data-testid="stVerticalBlock"]',
+        'div[data-testid="stElementContainer"]',
+    ]:
+        assert selector in styles_source
+    for rule in ["min-width: 0", "max-width: 100%", "overflow-wrap: anywhere"]:
+        assert rule in styles_source
+    assert ".desktop-table" in styles_source
+    assert "grid-template-columns: minmax(0, 1fr)" in styles_source
+    assert ".desktop-table > *" in styles_source
+    assert "overflow-x: hidden" in styles_source
+    assert "minmax(0, 2fr)" in styles_source
+    assert ".table-row > span:last-child" in styles_source
+    assert "-webkit-line-clamp: 2" in styles_source
+    assert ".state-strip" in styles_source
+    assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in styles_source
+    assert ".progress-item > *" in styles_source
+
+
 def test_recognition_page_matches_open_design_key_states():
     pages_source = Path("ui/pages.py").read_text(encoding="utf-8")
     components_source = Path("ui/components.py").read_text(encoding="utf-8")
