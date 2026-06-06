@@ -392,6 +392,38 @@ def inject_css() -> None:
             box-shadow: var(--nutri-shadow);
             margin-bottom: 0.75rem;
         }}
+        .latest-upload-card {{
+            max-width: 520px;
+        }}
+        .latest-upload-figure {{
+            width: min(100%, 420px);
+            margin: 14px auto 0;
+        }}
+        .latest-upload-figure img {{
+            display: block;
+            width: 100%;
+            max-height: 260px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid var(--nutri-border);
+            background: #F1F5F2;
+        }}
+        .latest-upload-figure figcaption,
+        .latest-upload-empty {{
+            margin-top: 8px;
+            color: var(--nutri-muted);
+            font-size: 0.84rem;
+            text-align: center;
+            overflow-wrap: anywhere;
+        }}
+        .latest-upload-empty {{
+            min-height: 120px;
+            display: grid;
+            place-items: center;
+            border: 1px dashed rgba(92, 168, 120, 0.35);
+            border-radius: 8px;
+            background: #FBFDFB;
+        }}
         .chart-bars {{
             min-height: 180px;
             display: grid;
@@ -679,6 +711,15 @@ def inject_css() -> None:
             }}
             .calorie-number {{
                 font-size: 2rem;
+            }}
+            .latest-upload-card {{
+                max-width: 100%;
+            }}
+            .latest-upload-figure {{
+                width: 100%;
+            }}
+            .latest-upload-figure img {{
+                max-height: 220px;
             }}
         }}
         </style>

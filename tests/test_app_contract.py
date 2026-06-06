@@ -156,6 +156,27 @@ def test_history_calorie_and_stats_pages_match_open_design_sections():
         assert class_name in styles_source
 
 
+def test_stats_latest_uploaded_image_is_size_limited():
+    pages_source = Path("ui/pages.py").read_text(encoding="utf-8")
+    styles_source = Path("ui/styles.py").read_text(encoding="utf-8")
+    stats_source = _function_source(pages_source, "stats_page")
+
+    assert "latest-upload-card" in stats_source
+    assert "latest-upload-figure" in stats_source
+    assert "st.image(" not in stats_source
+    assert "_image_data_url(latest_image, filename)" in stats_source
+    for css_text in [
+        ".latest-upload-card",
+        "max-width: 520px",
+        "width: min(100%, 420px)",
+        "max-height: 260px",
+        "object-fit: cover",
+        ".latest-upload-empty",
+        "max-height: 220px",
+    ]:
+        assert css_text in styles_source
+
+
 def test_final_open_design_contract_and_blockers_are_recorded():
     app_source = Path("app.py").read_text(encoding="utf-8")
     pages_source = Path("ui/pages.py").read_text(encoding="utf-8")

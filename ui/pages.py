@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import base64
 from html import escape
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -53,6 +55,12 @@ def _format_time(value: str | None) -> str:
     if not value:
         return "-"
     return value.replace("T", " ")
+
+
+def _image_data_url(image_bytes: bytes, filename: str | None = None) -> str:
+    suffix = Path(filename or "").suffix.lower()
+    mime_type = "image/png" if suffix == ".png" else "image/jpeg"
+    return f"data:{mime_type};base64," + base64.b64encode(image_bytes).decode("ascii")
 
 
 def get_openai_session_config() -> dict[str, str]:
@@ -602,26 +610,38 @@ def stats_page(db) -> None:
         ]
     )
 
-    st.markdown(
-        """
-        <div class="result-card">
-          <div class="result-row">
-            <strong>最新上传食物图</strong>
-            <span class="tag primary">当前会话</span>
-          </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
     latest_image = st.session_state.get(LATEST_IMAGE_BYTES_KEY)
     if latest_image:
-        st.image(
-            latest_image,
-            caption=st.session_state.get(LATEST_IMAGE_NAME_KEY, "最新上传食物图"),
-            use_container_width=True,
+        filename = str(st.session_state.get(LATEST_IMAGE_NAME_KEY, "最新上传食物图"))
+        caption = escape(filename)
+        st.markdown(
+            f"""
+            <div class="result-card latest-upload-card">
+              <div class="result-row">
+                <strong>最新上传食物图</strong>
+                <span class="tag primary">当前会话</span>
+              </div>
+              <figure class="latest-upload-figure">
+                <img src="{_image_data_url(latest_image, filename)}" alt="最新上传食物图">
+                <figcaption>{caption}</figcaption>
+              </figure>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
     else:
-        st.info("暂无上传图片")
+        st.markdown(
+            """
+            <div class="result-card latest-upload-card">
+              <div class="result-row">
+                <strong>最新上传食物图</strong>
+                <span class="tag primary">当前会话</span>
+              </div>
+              <div class="latest-upload-empty">暂无上传图片</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     ranking = get_food_ranking(db)
     if ranking.empty:
