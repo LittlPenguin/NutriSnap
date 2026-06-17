@@ -28,6 +28,17 @@ class FoodPredictor:
         self._class_names: list[str] | None = None
 
     def predict_image(self, image: Image.Image) -> dict[str, Any]:
+        from services.image_utils import assess_food_image
+
+        assessment = assess_food_image(image)
+        if not assessment.is_valid:
+            return {
+                "status": "invalid_image",
+                "message": assessment.message,
+                "reason": assessment.reason,
+                "quality_metrics": assessment.metrics,
+            }
+
         if _demo_enabled():
             return dict(DEMO_PREDICTION)
         if not self.model_path.exists() or not self.class_names_path.exists():

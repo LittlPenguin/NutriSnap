@@ -134,9 +134,9 @@ def render_openai_config_panel() -> dict[str, str]:
 
 
 def render_prediction(prediction: dict) -> None:
-    if prediction.get("status") in {"model_missing", "error"}:
+    if prediction.get("status") in {"model_missing", "error", "invalid_image"}:
         status_card(
-            "模型未加载",
+            "无法识别为食物图片" if prediction.get("status") == "invalid_image" else "模型未加载",
             prediction.get("message", "请先训练模型，或将 NUTRISNAP_DEMO_MODE=true 用于课程演示。"),
         )
         return
@@ -367,6 +367,8 @@ def recognition_page(db) -> None:
             workflow_state = "未上传"
         elif not prediction:
             workflow_state = "已上传预览"
+        elif prediction.get("status") in {"model_missing", "error", "invalid_image"}:
+            workflow_state = "失败："
         elif advice_result and advice_result.get("status") == "success":
             workflow_state = "生成完毕"
         elif advice_result:

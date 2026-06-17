@@ -130,14 +130,11 @@ def top3_progress(items: Iterable[dict]) -> str:
     for item in items:
         confidence = float(item.get("confidence", 0))
         percent = round(confidence * 100)
+        label = escape(str(item.get("name_cn", item.get("class_name", "-"))))
         rows.append(
-            f"""
-            <div class="progress-item">
-              <span>{escape(str(item.get("name_cn", item.get("class_name", "-"))))}</span>
-              <div class="bar"><span style="width:{percent}%"></span></div>
-              <b>{percent}%</b>
-            </div>
-            """
+            f'<div class="progress-item"><span>{label}</span>'
+            f'<div class="bar"><span style="width:{percent}%"></span></div>'
+            f"<b>{percent}%</b></div>"
         )
     return f'<div class="progress-list">{"".join(rows)}</div>'
 
