@@ -21,27 +21,41 @@ def evaluate_model(
     batch_size: int = 16,
     num_workers: int = 0,
 ) -> dict[str, float]:
+    """在测试集上评估 ResNet18 模型的 Top-1 和 Top-3 准确率。
+
+    Args:
+        dataset_root: 数据集根目录（需包含 test/ 子目录）
+        model_path: 模型权重文件路径
+        class_names_path: 类别名称 JSON 路径
+        batch_size: 批大小
+        num_workers: DataLoader 工作进程数
+
+    Returns:
+        包含 accuracy、top3_accuracy、sample_count 的字典
+    """
     try:
         from torchvision import datasets
     except ModuleNotFoundError as exc:
         raise ModuleNotFoundError(
-            "Evaluation requires torchvision. Install dependencies with: pip install -r requirements.txt"
+            "评估需要 torchvision，请先安装依赖：pip install -r requirements.txt"
         ) from exc
 
     dataset_root = Path(dataset_root)
     model_path = Path(model_path)
     class_names_path = Path(class_names_path)
     if not model_path.exists():
-        raise FileNotFoundError(f"Model file not found: {model_path}")
+        raise FileNotFoundError(f"模型文件不存在: {model_path}")
     if not (dataset_root / "test").exists():
-        raise FileNotFoundError("Dataset must contain a test/ directory.")
+        raise FileNotFoundError("数据集必须包含 test/ 目录。")
 
+    # 读取类别名称
     with class_names_path.open("r", encoding="utf-8") as file:
         class_names = json.load(file)
     _, eval_transform = build_transforms()
     dataset = datasets.ImageFolder(dataset_root / "test", transform=eval_transform)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
 
+    # 加载模型
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = build_model(len(class_names), freeze_backbone=False).to(device)
     checkpoint = torch.load(model_path, map_location=device)
@@ -49,6 +63,7 @@ def evaluate_model(
     model.load_state_dict(state_dict)
     model.eval()
 
+    # 遍历测试集计算准确率
     correct_top1 = 0
     correct_top3 = 0
     total = 0
@@ -64,14 +79,15 @@ def evaluate_model(
             total += labels.size(0)
 
     return {
-        "accuracy": round(correct_top1 / max(total, 1), 4),
-        "top3_accuracy": round(correct_top3 / max(total, 1), 4),
-        "sample_count": float(total),
+        "accuracy": round(correct_top1 / max(total, 1), 4),          # Top-1 准确率
+        "top3_accuracy": round(correct_top3 / max(total, 1), 4),      # Top-3 准确率
+        "sample_count": float(total),                                 # 总测试样本数
     }
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate the NutriSnap ResNet18 model.")
+    """命令行入口：解析参数并运行评估。"""
+    parser = argparse.ArgumentParser(description="评估 NutriSnap ResNet18 模型。")
     parser.add_argument("--dataset-root", default="dataset/food101_subset")
     parser.add_argument("--model-path", default="models/food_resnet18.pth")
     parser.add_argument("--class-names-path", default="models/class_names.json")

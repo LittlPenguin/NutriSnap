@@ -1,1 +1,1 @@
-"""Training utilities for NutriSnap."""
+"""NutriSnap 训练工具包，包含数据准备、模型训练和评估脚本。"""

@@ -16,6 +16,14 @@ TOKENS = {
 
 
 def inject_css() -> None:
+    """注入 NutriSnap 全局 CSS 样式。
+
+    通过 st.markdown 注入 <style> 标签，定义：
+    - CSS 变量（颜色主题）
+    - 全局样式（背景、字体、间距）
+    - 组件样式（卡片、导航、进度条等）
+    - 响应式布局（PC 端顶部导航、移动端底部固定导航）
+    """
     st.markdown(
         f"""
         <style>
@@ -194,7 +202,6 @@ def inject_css() -> None:
             color: #B76B20;
             font-weight: 700;
         }}
-        .nutri-card,
         .phone-card,
         .desktop-card,
         .result-card,
@@ -209,7 +216,6 @@ def inject_css() -> None:
             border-radius: 8px;
             box-shadow: var(--nutri-shadow);
         }}
-        .nutri-card,
         .phone-card,
         .desktop-card,
         .result-card,
@@ -314,8 +320,7 @@ def inject_css() -> None:
         }}
         .history-list,
         .food-grid,
-        .rank-list,
-        .chart-shell {{
+        .rank-list {{
             display: grid;
             gap: 10px;
         }}
@@ -384,14 +389,6 @@ def inject_css() -> None:
             color: var(--nutri-muted);
             line-height: 1.55;
         }}
-        .chart-shell {{
-            background: var(--nutri-card);
-            border: 1px solid var(--nutri-border);
-            border-radius: 8px;
-            padding: 1rem;
-            box-shadow: var(--nutri-shadow);
-            margin-bottom: 0.75rem;
-        }}
         .latest-upload-card {{
             max-width: 520px;
         }}
@@ -423,32 +420,6 @@ def inject_css() -> None:
             border: 1px dashed rgba(92, 168, 120, 0.35);
             border-radius: 8px;
             background: #FBFDFB;
-        }}
-        .chart-bars {{
-            min-height: 180px;
-            display: grid;
-            grid-template-columns: repeat(7, minmax(0, 1fr));
-            gap: 10px;
-            align-items: end;
-            padding-top: 12px;
-        }}
-        .chart-bar {{
-            display: grid;
-            gap: 6px;
-            align-items: end;
-            text-align: center;
-            color: var(--nutri-muted);
-            font-size: 0.78rem;
-        }}
-        .chart-bar i {{
-            display: block;
-            width: 100%;
-            min-height: 12px;
-            border-radius: 8px 8px 3px 3px;
-            background: #CFE8D8;
-        }}
-        .chart-bar.today i {{
-            background: var(--nutri-accent);
         }}
         .upload-box {{
             min-height: 150px;

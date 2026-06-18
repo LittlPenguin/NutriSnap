@@ -6,6 +6,7 @@ from services.database import Database, get_database
 
 
 def _history_frame(db: Database) -> pd.DataFrame:
+    """从数据库读取识别历史并转换为 DataFrame。"""
     history = db.list_history()
     if not history:
         return pd.DataFrame(
@@ -13,32 +14,13 @@ def _history_frame(db: Database) -> pd.DataFrame:
                 "id",
                 "predicted_name_cn",
                 "total_calorie",
-                "created_at",
             ]
         )
-    frame = pd.DataFrame(history)
-    frame["created_at"] = pd.to_datetime(frame["created_at"])
-    frame["date"] = frame["created_at"].dt.strftime("%Y-%m-%d")
-    return frame
-
-
-def get_daily_stats(db: Database | None = None, days: int = 7) -> pd.DataFrame:
-    db = db or get_database()
-    frame = _history_frame(db)
-    if frame.empty:
-        return pd.DataFrame(columns=["date", "total_calorie", "record_count"])
-    stats = (
-        frame.groupby("date", as_index=False)
-        .agg(total_calorie=("total_calorie", "sum"), record_count=("id", "count"))
-        .sort_values("date", ascending=False)
-        .head(days)
-        .sort_values("date")
-        .reset_index(drop=True)
-    )
-    return stats
+    return pd.DataFrame(history)
 
 
 def get_food_ranking(db: Database | None = None, limit: int = 5) -> pd.DataFrame:
+    """获取常见食物排行：按识别次数降序，取前 N 名。"""
     db = db or get_database()
     frame = _history_frame(db)
     if frame.empty:

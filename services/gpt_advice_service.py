@@ -8,13 +8,20 @@ from typing import Any
 
 import httpx
 from dotenv import load_dotenv
-from openai import OpenAI
 
 from services.schemas import PROJECT_ROOT
 
 
 @dataclass(frozen=True)
 class OpenAISettings:
+    """OpenAI 连接配置的数据类。
+
+    Attributes:
+        api_key: API 密钥
+        base_url: 基础 URL（可选，用于中转代理）
+        model: 模型名称
+        source: 配置来源（session / env / default）
+    """
     api_key: str | None
     base_url: str | None
     model: str
@@ -22,10 +29,12 @@ class OpenAISettings:
 
     @property
     def has_api_key(self) -> bool:
+        """是否有有效的 API Key。"""
         return bool(self.api_key)
 
 
 def _clean(value: Any) -> str | None:
+    """清理输入值：去除首尾空白，空字符串转为 None。"""
     if value is None:
         return None
     text = str(value).strip()
@@ -33,7 +42,15 @@ def _clean(value: Any) -> str | None:
 
 
 def resolve_openai_settings(overrides: dict[str, Any] | OpenAISettings | None = None) -> OpenAISettings:
+    """解析 OpenAI 配置，优先级：传入参数 > .env 文件 > 默认值。
+
+    支持三种配置来源：
+    1. session：当前 Streamlit 会话中页面上的手动输入
+    2. env：.env 文件中的环境变量
+    3. default：使用默认值（gpt-5）
+    """
     load_dotenv(PROJECT_ROOT / ".env")
+    # 如果传入的就是 OpenAISettings 对象，直接返回
     if isinstance(overrides, OpenAISettings):
         return overrides
 
@@ -61,6 +78,7 @@ def resolve_openai_settings(overrides: dict[str, Any] | OpenAISettings | None = 
 
 
 def mask_api_key(api_key: str | None) -> str:
+    """脱敏显示 API Key（仅显示前 3 位和后 4 位）。"""
     key = _clean(api_key)
     if not key:
         return "未配置"
@@ -69,11 +87,8 @@ def mask_api_key(api_key: str | None) -> str:
     return f"{key[:3]}****{key[-4:]}"
 
 
-def build_openai_client(api_key: str, base_url: str | None = None) -> OpenAI:
-    return OpenAI(api_key=api_key, base_url=base_url or None, timeout=20.0)
-
-
 def _api_base_url(base_url: str | None) -> str:
+    """规范化 API Base URL：去掉末尾的 /chat/completions 或 /responses。"""
     base = (base_url or "https://api.openai.com/v1").rstrip("/")
     if base.endswith("/chat/completions"):
         return base[: -len("/chat/completions")]
@@ -82,31 +97,8 @@ def _api_base_url(base_url: str | None) -> str:
     return base
 
 
-def _post_json(api_key: str, base_url: str | None, endpoint: str, payload: dict[str, Any]) -> dict[str, Any]:
-    url = f"{_api_base_url(base_url)}/{endpoint.lstrip('/')}"
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    last_error: Exception | None = None
-    with httpx.Client(timeout=45.0) as http_client:
-        for _ in range(2):
-            try:
-                response = http_client.post(url, headers=headers, json=payload)
-                response.raise_for_status()
-                return response.json()
-            except httpx.HTTPStatusError as exc:
-                last_error = exc
-                if exc.response.status_code < 500:
-                    raise
-            except (httpx.TimeoutException, httpx.TransportError) as exc:
-                last_error = exc
-    if last_error:
-        raise last_error
-    raise RuntimeError("OpenAI HTTP request failed")
-
-
 def _safe_error_reason(exc: Exception) -> str:
+    """从异常中安全提取可读的错误原因。"""
     if isinstance(exc, httpx.HTTPStatusError):
         status_code = exc.response.status_code
         try:
@@ -117,11 +109,15 @@ def _safe_error_reason(exc: Exception) -> str:
         text = str(message).strip()
         return f"HTTP {status_code}: {text[:180]}" if text else f"HTTP {status_code}"
     if isinstance(exc, httpx.TimeoutException):
-        return "timeout"
+        return "连接超时"
     return str(exc)[:220] or exc.__class__.__name__
 
 
 def _extract_stream_delta(payload: dict[str, Any]) -> str:
+    """从流式响应的 JSON 块中提取文本增量。
+
+    兼容 chat/completions 和 responses 两种 endpoint 格式。
+    """
     choices = payload.get("choices") or []
     if choices:
         delta = choices[0].get("delta") or {}
@@ -148,6 +144,10 @@ def _stream_json(
     endpoint: str,
     payload: dict[str, Any],
 ) -> Iterator[dict[str, str]]:
+    """对 OpenAI 兼容 API 发送流式请求，逐个 yield 事件（delta / done）。
+
+    SSE 格式：每行以 data: 开头，结尾为 data: [DONE]。
+    """
     url = f"{_api_base_url(base_url)}/{endpoint.lstrip('/')}"
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -182,6 +182,7 @@ def _stream_json(
 
 
 def build_prompt(food_name: str, weight_g: float, total_calorie: float, user_goal: str) -> str:
+    """构造发送给模型的提示词。"""
     return (
         "请基于以下已经明确给出的饮食记录生成中文饮食建议，100字以内。"
         "不要说食物或目标未明确，不要给医学诊断或治疗建议，必须说明热量为估算值。"
@@ -193,6 +194,10 @@ def build_prompt(food_name: str, weight_g: float, total_calorie: float, user_goa
 
 
 def local_rule_advice(food_name: str, weight_g: float, total_calorie: float, user_goal: str, prefix: str = "") -> str:
+    """基于本地规则的降级建议（当 GPT 调用失败时使用）。
+
+    根据热量高低和目标生成不同建议文案，标注不作为医学或营养诊断。
+    """
     if total_calorie >= 500:
         suggestion = "这餐热量偏高，建议控制份量，并搭配蔬菜或无糖饮品。"
     elif total_calorie >= 300:
@@ -211,73 +216,8 @@ def local_rule_advice(food_name: str, weight_g: float, total_calorie: float, use
     return f"{lead}{food_name}{weight_g}g 估算约 {total_calorie} kcal。{suggestion} 不作为医学或营养诊断。"
 
 
-def _extract_output_text(response: Any) -> str:
-    if isinstance(response, dict):
-        output_text = response.get("output_text")
-        if output_text:
-            return str(output_text).strip()
-        choices = response.get("choices") or []
-        if choices:
-            message = choices[0].get("message") or {}
-            content = message.get("content")
-            if content:
-                if isinstance(content, list):
-                    return "\n".join(str(item.get("text", item)) for item in content).strip()
-                return str(content).strip()
-        output = response.get("output") or []
-        texts: list[str] = []
-        for item in output:
-            for content in item.get("content", []) or []:
-                text = content.get("text")
-                if text:
-                    texts.append(str(text))
-        return "\n".join(texts).strip()
-
-    output_text = getattr(response, "output_text", None)
-    if output_text:
-        return str(output_text).strip()
-    output = getattr(response, "output", None) or []
-    texts: list[str] = []
-    for item in output:
-        for content in getattr(item, "content", []) or []:
-            text = getattr(content, "text", None)
-            if text:
-                texts.append(str(text))
-    return "\n".join(texts).strip()
-
-
-def _generate_http_advice(settings: OpenAISettings, prompt: str) -> str:
-    if not settings.api_key:
-        raise ValueError("OpenAI API key is required")
-
-    instructions = _model_instructions()
-    responses_payload = {
-        "model": settings.model,
-        "instructions": instructions,
-        "input": prompt,
-        "max_output_tokens": 180,
-    }
-    chat_payload = {
-        "model": settings.model,
-        "messages": [
-            {"role": "system", "content": instructions},
-            {"role": "user", "content": prompt},
-        ],
-        "max_tokens": 180,
-    }
-
-    errors: list[Exception] = []
-    for endpoint, payload in (("chat/completions", chat_payload), ("responses", responses_payload)):
-        try:
-            advice = _extract_output_text(_post_json(str(settings.api_key), settings.base_url, endpoint, payload))
-            if advice:
-                return advice
-        except Exception as exc:
-            errors.append(exc)
-    raise RuntimeError(f"OpenAI HTTP request failed: {errors[-1] if errors else 'empty response'}")
-
-
 def _model_instructions() -> str:
+    """模型 system prompt / instructions，约束输出为中文、简短、不做诊断。"""
     return (
         "你是饮食记录应用中的建议助手。输出中文，100字以内。"
         "只能给一般饮食记录建议，不做医学或营养诊断。"
@@ -285,6 +225,7 @@ def _model_instructions() -> str:
 
 
 def _chat_stream_payload(settings: OpenAISettings, prompt: str) -> dict[str, Any]:
+    """构造 chat/completions 流式请求的 payload。"""
     return {
         "model": settings.model,
         "messages": [
@@ -297,6 +238,7 @@ def _chat_stream_payload(settings: OpenAISettings, prompt: str) -> dict[str, Any
 
 
 def _responses_stream_payload(settings: OpenAISettings, prompt: str) -> dict[str, Any]:
+    """构造 responses 流式请求的 payload。"""
     return {
         "model": settings.model,
         "instructions": _model_instructions(),
@@ -313,6 +255,11 @@ def stream_model_advice(
     user_goal: str,
     settings: OpenAISettings | dict[str, Any] | None = None,
 ) -> Iterator[dict[str, str]]:
+    """流式生成 GPT 饮食建议，支持降级。
+
+    先检查 API Key，没有则直接返回降级；
+    否则依次尝试 chat/completions 和 responses 两个 endpoint 进行流式调用。
+    """
     resolved_settings = resolve_openai_settings(settings)
     fallback = local_rule_advice(food_name, weight_g, total_calorie, user_goal, prefix="Model 调用失败，")
 
@@ -346,42 +293,3 @@ def stream_model_advice(
         except Exception as exc:
             last_reason = _safe_error_reason(exc)
     yield {"type": "error", "reason": last_reason, "fallback": fallback}
-
-
-def generate_gpt_advice(
-    food_name: str,
-    weight_g: float,
-    total_calorie: float,
-    user_goal: str,
-    client: Any | None = None,
-    settings: OpenAISettings | dict[str, Any] | None = None,
-) -> dict[str, str]:
-    resolved_settings = resolve_openai_settings(settings)
-
-    if client is None and not resolved_settings.api_key:
-        return {
-            "status": "fallback",
-            "advice": local_rule_advice(food_name, weight_g, total_calorie, user_goal),
-        }
-
-    try:
-        prompt = build_prompt(food_name, weight_g, total_calorie, user_goal)
-        if client is None:
-            advice = _generate_http_advice(resolved_settings, prompt)
-            return {"status": "success", "advice": advice}
-
-        response = client.responses.create(
-            model=resolved_settings.model,
-            instructions=_model_instructions(),
-            input=prompt,
-            max_output_tokens=180,
-        )
-        advice = _extract_output_text(response)
-        if not advice:
-            raise ValueError("empty OpenAI response")
-        return {"status": "success", "advice": advice}
-    except Exception:
-        return {
-            "status": "error",
-            "advice": local_rule_advice(food_name, weight_g, total_calorie, user_goal, prefix="Model 调用失败，"),
-        }

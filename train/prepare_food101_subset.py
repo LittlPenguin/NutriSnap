@@ -15,6 +15,7 @@ from services.schemas import FOOD101_SUBSET_CLASSES
 
 
 def split_indices(indices: list[int], seed: int = 42) -> tuple[list[int], list[int], list[int]]:
+    """将索引列表按 70:15:15 比例划分为训练集、验证集、测试集。"""
     shuffled = list(indices)
     random.Random(seed).shuffle(shuffled)
     train_end = int(len(shuffled) * 0.70)
@@ -23,11 +24,12 @@ def split_indices(indices: list[int], seed: int = 42) -> tuple[list[int], list[i
 
 
 def download_food101_raw(raw_root: str | Path = "dataset/food101_raw") -> Path:
+    """使用 torchvision 下载 Food-101 完整数据集，返回图片目录路径。"""
     raw_root = Path(raw_root)
     try:
         from torchvision.datasets import Food101
     except ImportError as exc:
-        raise RuntimeError("torchvision is required to download Food-101.") from exc
+        raise RuntimeError("下载 Food-101 需要安装 torchvision。") from exc
 
     for split in ["train", "test"]:
         Food101(root=str(raw_root), split=split, download=True)
@@ -40,22 +42,32 @@ def prepare_food101_subset(
     limit_per_class: int | None = None,
     seed: int = 42,
 ) -> None:
+    """从 Food-101 全量数据中提取 12 类子集，按 70:15:15 分 train/val/test。
+
+    Args:
+        source_root: Food-101 完整图片目录
+        output_root: 子集输出目录
+        limit_per_class: 每类最多取多少张（None 表示全部）
+        seed: 随机种子
+    """
     source_root = Path(source_root)
     output_root = Path(output_root)
     if not source_root.exists():
         raise FileNotFoundError(
-            f"Food-101 image directory not found: {source_root}. "
-            "Download Food-101 first or pass --source-root to an existing images directory."
+            f"Food-101 图片目录不存在: {source_root}。"
+            "请先下载 Food-101，或通过 --source-root 指定已有图片目录。"
         )
 
+    # 创建 train/val/test 子目录结构
     for split in ["train", "val", "test"]:
         for class_name in FOOD101_SUBSET_CLASSES:
             (output_root / split / class_name).mkdir(parents=True, exist_ok=True)
 
+    # 遍历 12 类，复制图片并按比例分配
     for class_name in FOOD101_SUBSET_CLASSES:
         class_dir = source_root / class_name
         if not class_dir.exists():
-            raise FileNotFoundError(f"Missing Food-101 class directory: {class_dir}")
+            raise FileNotFoundError(f"Food-101 类别目录不存在: {class_dir}")
         images = sorted(class_dir.glob("*.jpg"))
         if limit_per_class is not None:
             images = images[:limit_per_class]
@@ -65,11 +77,13 @@ def prepare_food101_subset(
             for index in indices:
                 shutil.copy2(images[index], output_root / split / class_name / images[index].name)
 
+    # 保存类别名称列表
     with (output_root / "class_names.json").open("w", encoding="utf-8") as file:
         json.dump(FOOD101_SUBSET_CLASSES, file, ensure_ascii=False, indent=2)
 
 
 def validate_food101_subset(output_root: str | Path = "dataset/food101_subset") -> dict[str, Any]:
+    """验证 Food-101 子集结构完整性，返回验收报告。"""
     output_root = Path(output_root)
     report: dict[str, Any] = {
         "output_root": str(output_root),
@@ -113,15 +127,16 @@ def validate_food101_subset(output_root: str | Path = "dataset/food101_subset") 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Prepare the NutriSnap Food-101 subset.")
+    """命令行入口：解析参数并执行数据准备或验证。"""
+    parser = argparse.ArgumentParser(description="准备 NutriSnap Food-101 子集。")
     parser.add_argument("--source-root", default="dataset/food101_raw/food-101/images")
     parser.add_argument("--raw-root", default="dataset/food101_raw")
     parser.add_argument("--output-root", default="dataset/food101_subset")
     parser.add_argument("--limit-per-class", type=int, default=None)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--download", action="store_true", help="Download Food-101 with torchvision before preparing.")
-    parser.add_argument("--validate-only", action="store_true", help="Only validate the prepared subset.")
-    parser.add_argument("--report-json", default=None, help="Optional path to write the validation report.")
+    parser.add_argument("--download", action="store_true", help="先使用 torchvision 下载 Food-101。")
+    parser.add_argument("--validate-only", action="store_true", help="仅验证已准备的子集。")
+    parser.add_argument("--report-json", default=None, help="可选的验收报告 JSON 输出路径。")
     args = parser.parse_args()
     source_root = args.source_root
     if args.download and not args.validate_only:

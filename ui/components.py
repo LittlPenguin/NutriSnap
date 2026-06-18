@@ -5,6 +5,7 @@ from html import escape
 
 import streamlit as st
 
+# 四个导航项的配置元组：(显示标签, 路由 key, 移动端图标, 移动端短标签)
 PAGE_ITEMS = [
     ("食物识别", "recognition", "图", "识别"),
     ("历史记录", "history", "时", "历史"),
@@ -14,6 +15,7 @@ PAGE_ITEMS = [
 
 
 def page_key(label: str) -> str:
+    """根据页面标签获取对应的路由 key。"""
     for item_label, key, _, _ in PAGE_ITEMS:
         if item_label == label:
             return key
@@ -21,6 +23,7 @@ def page_key(label: str) -> str:
 
 
 def _active_key(active_page: str | None) -> str:
+    """获取当前活跃页面的 key，无效则返回第一个。"""
     if not active_page:
         return PAGE_ITEMS[0][1]
     keys = {key for _, key, _, _ in PAGE_ITEMS}
@@ -30,6 +33,7 @@ def _active_key(active_page: str | None) -> str:
 
 
 def _label_for_key(page: str, mobile: bool = False) -> str:
+    """根据路由 key 获取显示标签，mobile=True 时返回带图标的短标签。"""
     for label, key, icon, short in PAGE_ITEMS:
         if key == page:
             return f"{icon} {short}" if mobile else label
@@ -37,13 +41,14 @@ def _label_for_key(page: str, mobile: bool = False) -> str:
 
 
 def _switch_page(selected_page: str | None, active_page: str | None) -> None:
+    """站内页面切换：更新 URL 参数并触发 Streamlit rerun。"""
     active_key = _active_key(active_page)
     if selected_page and selected_page != active_key:
         st.query_params["page"] = selected_page
         st.rerun()
 
-
 def brand_header(subtitle: str, active_page: str | None = None) -> None:
+    """渲染顶部品牌栏：NutriSnap 标识 + 副标题 + PC 端导航 pills。"""
     active_key = _active_key(active_page)
     st.markdown(
         f"""
@@ -74,6 +79,7 @@ def brand_header(subtitle: str, active_page: str | None = None) -> None:
 
 
 def page_title(title: str, description: str, tag: str | None = None, tag_kind: str = "primary") -> None:
+    """渲染页面标题区域，包含标题、描述和可选标签。"""
     tag_html = f'<span class="tag {tag_kind}">{escape(tag)}</span>' if tag else ""
     st.markdown(
         f"""
@@ -90,6 +96,7 @@ def page_title(title: str, description: str, tag: str | None = None, tag_kind: s
 
 
 def bottom_nav(active_page: str) -> None:
+    """渲染移动端底部固定导航栏（4 列按钮），隐藏 PC 端。"""
     active_key = _active_key(active_page)
     with st.container(key=f"bottom_nav_container_{active_key}"):
         st.markdown(
@@ -111,21 +118,20 @@ def bottom_nav(active_page: str) -> None:
     _switch_page(selected_page, active_key)
 
 
-def card(content: str, class_name: str = "") -> None:
-    st.markdown(f'<div class="nutri-card {class_name}">{content}</div>', unsafe_allow_html=True)
-
-
 def metric_card(label: str, value: str, helper: str | None = None) -> str:
+    """生成单个指标卡 HTML 字符串。"""
     helper_html = f'<span>{escape(helper)}</span>' if helper else ""
     return f'<div class="desktop-stat"><span>{escape(label)}</span><strong>{escape(value)}</strong>{helper_html}</div>'
 
 
 def metric_grid(metrics: Iterable[tuple[str, str, str | None]]) -> None:
+    """渲染一行多个指标卡（Grid 布局）。"""
     cards = "".join(metric_card(label, value, helper) for label, value, helper in metrics)
     st.markdown(f'<div class="desktop-metrics">{cards}</div>', unsafe_allow_html=True)
 
 
 def top3_progress(items: Iterable[dict]) -> str:
+    """生成 Top-3 预测结果的进度条 HTML，包含中文名和置信度百分比。"""
     rows = []
     for item in items:
         confidence = float(item.get("confidence", 0))
@@ -140,6 +146,7 @@ def top3_progress(items: Iterable[dict]) -> str:
 
 
 def calorie_result_card(total_calorie: str, per_100g: str) -> None:
+    """渲染估算热量的结果卡片，包含总热量和每 100g 热量。"""
     st.markdown(
         f"""
         <div class="result-card advice-card">
@@ -154,6 +161,7 @@ def calorie_result_card(total_calorie: str, per_100g: str) -> None:
 
 
 def status_card(title: str, body: str, kind: str = "warning") -> None:
+    """渲染状态提示卡片（警告或信息）。"""
     class_name = "warning-card" if kind == "warning" else "advice-card"
     st.markdown(
         f"""
@@ -167,6 +175,7 @@ def status_card(title: str, body: str, kind: str = "warning") -> None:
 
 
 def upload_state_card(has_image: bool, filename: str | None = None) -> None:
+    """渲染上传状态卡片，显示已上传或待上传。"""
     if has_image:
         title = "已上传预览"
         body = filename or "图片已读取"
@@ -194,6 +203,7 @@ def upload_state_card(has_image: bool, filename: str | None = None) -> None:
 
 
 def workflow_state_strip(active: str) -> None:
+    """渲染工作流状态条（6 个步骤，高亮当前所在步骤）。"""
     states = [
         ("未上传", "上传框默认状态"),
         ("已上传预览", "图片预览"),
@@ -211,6 +221,7 @@ def workflow_state_strip(active: str) -> None:
 
 
 def history_record_card(record: dict) -> str:
+    """生成单条历史记录卡片的 HTML。"""
     food_name = escape(str(record.get("predicted_name_cn", "-")))
     weight = float(record.get("weight_g", 0) or 0)
     calorie = float(record.get("total_calorie", 0) or 0)
@@ -231,6 +242,7 @@ def history_record_card(record: dict) -> str:
 
 
 def food_calorie_card(food: dict) -> str:
+    """生成热量表食物卡片的 HTML。"""
     name_cn = escape(str(food.get("name_cn", "-")))
     class_name = escape(str(food.get("class_name", "-")))
     category = escape(str(food.get("category", "-")))
@@ -253,6 +265,7 @@ def food_calorie_card(food: dict) -> str:
 
 
 def ranking_row(name: str, count: int, total_calorie: float | None = None, meta: str | None = None) -> str:
+    """生成排行行 HTML，显示食物名称、次数和总热量。"""
     helper = meta or "最近记录"
     calorie_html = f'<span>{float(total_calorie):.0f} kcal</span>' if total_calorie is not None else ""
     return f"""
@@ -268,6 +281,7 @@ def ranking_row(name: str, count: int, total_calorie: float | None = None, meta:
 
 
 def estimate_boundary_card(title: str, body: str, kind: str = "warning") -> None:
+    """渲染边界说明卡片（提示数据仅供参考）。"""
     class_name = "warning-card" if kind == "warning" else "advice-card"
     st.markdown(
         f"""
@@ -279,41 +293,3 @@ def estimate_boundary_card(title: str, body: str, kind: str = "warning") -> None
         unsafe_allow_html=True,
     )
 
-
-def daily_bar_chart(rows: Iterable[dict], highlight_label: str = "今天") -> str:
-    row_list = list(rows)
-    if not row_list:
-        return """
-        <div class="chart-shell">
-          <strong>估算热量参考</strong>
-          <div class="upload-box" style="min-height:120px">
-            暂无统计数据，完成一次识别后生成柱状图。
-          </div>
-        </div>
-        """
-
-    max_value = max(float(row.get("total_calorie", 0) or 0) for row in row_list) or 1
-    bars = []
-    for row in row_list:
-        label = escape(str(row.get("date", "-"))[-5:])
-        value = float(row.get("total_calorie", 0) or 0)
-        height = max(18, round(value / max_value * 150))
-        class_name = "chart-bar today" if row.get("label") == highlight_label else "chart-bar"
-        bars.append(
-            f"""
-            <div class="{class_name}">
-              <i style="height:{height}px"></i>
-              <span>{label}</span>
-              <b>{value:.0f}</b>
-            </div>
-            """
-        )
-    return f"""
-    <div class="chart-shell">
-      <div class="result-row">
-        <strong>估算热量参考</strong>
-        <span class="tag warn">仅供饮食记录参考</span>
-      </div>
-      <div class="chart-bars">{"".join(bars)}</div>
-    </div>
-    """

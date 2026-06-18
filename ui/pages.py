@@ -36,6 +36,7 @@ LATEST_IMAGE_NAME_KEY = "latest_uploaded_image_name"
 
 
 def read_uploaded_image(uploaded_file) -> Image.Image | None:
+    """从 Streamlit 上传控件读取图片文件，返回 PIL Image 对象；失败时显示错误并返回 None。"""
     if uploaded_file is None:
         return None
     try:
@@ -46,29 +47,34 @@ def read_uploaded_image(uploaded_file) -> Image.Image | None:
 
 
 def confidence_text(value: float | None) -> str:
+    """将置信度数值格式化为百分比字符串（如 0.93 → "93.0%"），None 时返回 "-"。"""
     if value is None:
         return "-"
     return f"{float(value) * 100:.1f}%"
 
 
 def _format_time(value: str | None) -> str:
+    """将 ISO 时间字符串格式化为可读格式（T 替换为空格）。"""
     if not value:
         return "-"
     return value.replace("T", " ")
 
 
 def _image_data_url(image_bytes: bytes, filename: str | None = None) -> str:
+    """将图片字节数据转换为 data URL（base64 编码），用于 st.markdown 中的 img 标签。"""
     suffix = Path(filename or "").suffix.lower()
     mime_type = "image/png" if suffix == ".png" else "image/jpeg"
     return f"data:{mime_type};base64," + base64.b64encode(image_bytes).decode("ascii")
 
 
 def get_openai_session_config() -> dict[str, str]:
+    """从 st.session_state 获取当前会话中配置的 OpenAI 参数。"""
     value = st.session_state.get(OPENAI_SESSION_CONFIG_KEY)
     return dict(value) if isinstance(value, dict) else {}
 
 
 def render_openai_config_panel() -> dict[str, str]:
+    """渲染 OpenAI 配置面板（折叠框），包含 Base URL、API Key、Model 输入框。"""
     session_config = get_openai_session_config()
     settings = resolve_openai_settings(session_config)
     source_text = {
@@ -134,10 +140,11 @@ def render_openai_config_panel() -> dict[str, str]:
 
 
 def render_prediction(prediction: dict) -> None:
+    """渲染识别结果区域：状态卡片 + Top-3 进度条。"""
     if prediction.get("status") in {"model_missing", "error", "invalid_image"}:
         status_card(
             "无法识别为食物图片" if prediction.get("status") == "invalid_image" else "模型未加载",
-            prediction.get("message", "请先训练模型，或将 NUTRISNAP_DEMO_MODE=true 用于课程演示。"),
+            prediction.get("message", "请先训练模型，或将 NUTRISNAP_DEMO_MODE=true"),
         )
         return
 
@@ -169,6 +176,7 @@ def render_model_advice_stream(
     user_goal: str,
     openai_config: dict[str, str],
 ) -> dict[str, str]:
+    """流式渲染 Model 建议内容：逐 token 显示，支持降级。"""
     status_placeholder = st.empty()
     advice_placeholder = st.empty()
     status_placeholder.markdown(
@@ -240,6 +248,7 @@ def render_model_advice_stream(
 
 
 def render_final_calorie_and_advice(calorie_result: dict | None, advice_result: dict | None) -> None:
+    """最终渲染热量结果和建议卡片（rerun 后的稳态显示）。"""
     if calorie_result:
         calorie_result_card(str(calorie_result["total_calorie"]), str(calorie_result["calorie_per_100g"]))
     if not advice_result:
@@ -283,8 +292,9 @@ def render_final_calorie_and_advice(calorie_result: dict | None, advice_result: 
         unsafe_allow_html=True,
     )
 
-
+# 首页
 def recognition_page(db) -> None:
+    """【食物识别】页面：上传图片 → 识别 → 热量估算 → Model 建议 → 保存历史。"""
     brand_header("今天也记一餐", "食物识别")
     page_title("食物识别工作台", "上传图片、查看识别结果，输入重量后估算热量并生成饮食建议。", "估算热量")
     history = db.list_history()
@@ -439,6 +449,7 @@ def recognition_page(db) -> None:
 
 
 def history_page(db) -> None:
+    """【历史记录】页面：按时间倒序展示识别历史列表和表格。"""
     brand_header("识别历史与建议摘要", "历史记录")
     page_title("历史记录", "按时间倒序查看饮食记录，移动端使用卡片，PC 端保留宽屏表格。")
     history = db.list_history()
@@ -546,6 +557,7 @@ def history_page(db) -> None:
 
 
 def calorie_table_page(db) -> None:
+    """【热量表】页面：展示 Food-101 子集 12 类食物的热量参考表。"""
     brand_header("Food-101 子集热量参考", "热量表")
     page_title("食物热量表", "查询系统支持食物类别的每 100g 热量和默认份量。", "SQLite food_calorie")
     all_foods = db.list_foods()
@@ -587,14 +599,11 @@ def calorie_table_page(db) -> None:
         """,
         unsafe_allow_html=True,
     )
-    estimate_boundary_card(
-        "热量表边界说明",
-        "热量值来自预置参考表，会因品牌、烹饪方式和配料不同产生误差；结果只用于估算热量。",
-    )
     bottom_nav("热量表")
 
 
 def stats_page(db) -> None:
+    """【统计分析】页面：累计/今日热量、最新上传图、常见食物排行。"""
     brand_header("估算摄入趋势与常见食物", "统计分析")
     page_title("统计分析", "查看记录次数、累计热量、今日热量、最新上传食物图和常见食物排行。", "趋势参考")
     history = db.list_history()

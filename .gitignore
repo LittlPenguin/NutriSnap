@@ -2,8 +2,7 @@ opendesign-nutrisnap/
 dataset/
 checkpoints/
 runs/
-doc/*.doc
-doc/*.docx
+doc/
 
 # Python cache and test artifacts
 __pycache__/
@@ -32,3 +31,8 @@ models/*.pth
 models/*.pt
 models/*.onnx
 outputs/
+
+
+.idea/
+.streamlit/
+tests/

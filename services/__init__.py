@@ -1,1 +1,1 @@
-"""Core services for NutriSnap."""
+"""NutriSnap 核心业务逻辑包，包含数据库、推理、热量计算、GPT 建议等服务。"""
